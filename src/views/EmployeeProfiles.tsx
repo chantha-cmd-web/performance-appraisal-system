@@ -297,6 +297,24 @@ export default function EmployeeProfiles() {
     XLSX.writeFile(wb, "employee_import_template.xlsx");
   };
 
+  const handleResetAllEmployees = async () => {
+    if (!confirm('Are you sure you want to DELETE ALL employee profiles? This cannot be undone.')) return;
+    try {
+      const res = await apiFetch('/api/data/reset/employees', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        toast.success('All employee profiles have been reset');
+        fetchEmployees();
+      } else {
+        toast.error('Failed to reset employees');
+      }
+    } catch (err) {
+      toast.error('Failed to reset employees');
+    }
+  };
+
   const filteredEmployees = employees.filter(e => 
     e.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
     e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -320,6 +338,9 @@ export default function EmployeeProfiles() {
           </button>
           <button onClick={() => setIsImportModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-500/20 font-semibold shadow-sm">
             <Upload size={18} /> Bulk Import
+          </button>
+          <button onClick={handleResetAllEmployees} className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-100 dark:hover:bg-red-500/20 font-semibold shadow-sm">
+            <Trash2 size={18} /> Reset All
           </button>
         </div>
       </div>
