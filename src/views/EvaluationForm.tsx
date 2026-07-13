@@ -1,5 +1,5 @@
 import { apiFetch } from '../mockApi';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { CriteriaScore, PeerFeedback, STATUS_LABELS } from '../types';
 import { Save, Plus, Trash2, Printer, Eye, Edit2 } from 'lucide-react';
@@ -91,16 +91,16 @@ export default function EvaluationForm() {
     if (!editId && config && formData.evaluationType === '') {
       setFormData(prev => ({
         ...prev,
-        evaluationType: config.types[0]?.id || '',
-        weightScheme: config.weightingSchemes[0]?.id || ''
+        evaluationType: config.types?.[0]?.id || '',
+        weightScheme: config.weightingSchemes?.[0]?.id || ''
       }));
     }
   }, [config, editId]);
 
   // Find matching profile
-  let matchedProfile = null;
-  if (profiles) {
-    matchedProfile = profiles.find(p => {
+  const matchedProfile = useMemo(() => {
+    if (!profiles) return null;
+    return profiles.find(p => {
       if (p.department && p.department.toLowerCase() !== formData.department.toLowerCase()) return false;
       if (p.campus && p.campus.toLowerCase() !== formData.campus.toLowerCase()) return false;
       if (p.position && p.position.toLowerCase() !== formData.position.toLowerCase()) return false;
@@ -108,12 +108,14 @@ export default function EvaluationForm() {
       if (p.evaluationType && p.evaluationType !== formData.evaluationType) return false;
       if (p.evaluationPeriod && p.evaluationPeriod.toLowerCase() !== formData.evalPeriod.toLowerCase()) return false;
       return true;
-    });
-  }
+    }) || null;
+  }, [profiles, formData.department, formData.campus, formData.position, formData.category, formData.evaluationType, formData.evalPeriod]);
 
-  const currentCriteria = matchedProfile?.criteria && matchedProfile.criteria.length > 0
-    ? matchedProfile.criteria 
-    : config?.criteriaSets[formData.evaluationType] || [];
+  const currentCriteria = useMemo(() => {
+    return matchedProfile?.criteria && matchedProfile.criteria.length > 0
+      ? matchedProfile.criteria
+      : config?.criteriaSets[formData.evaluationType] || [];
+  }, [matchedProfile, config, formData.evaluationType]);
   
   useEffect(() => {
     if (!editId && !initialLoad && currentCriteria.length > 0 && criteriaScores.length === 0) {
@@ -273,7 +275,7 @@ export default function EvaluationForm() {
 
   const handleSubmit = (e: React.FormEvent) => handleActionSubmit(e, 'submit');
 
-  if (configLoading) return <div className="text-center p-12 text-slate-500 font-bold">Loading form configuration...</div>;
+  if (configLoading || profilesLoading) return <div className="text-center p-12 text-slate-500 font-bold">Loading form configuration...</div>;
 
   return (
     <form onSubmit={handleSubmit} className="max-w-6xl mx-auto space-y-8 print:space-y-4 print:max-w-none">
@@ -358,7 +360,7 @@ export default function EvaluationForm() {
                 value={formData.evaluationType}
                 onChange={e => setFormData({...formData, evaluationType: e.target.value})}
               >
-                {config?.types.map(s => (
+                {config?.types?.map(s => (
                   <option key={s.id} value={s.id}>{s.label}</option>
                 ))}
               </select>
@@ -372,7 +374,7 @@ export default function EvaluationForm() {
                 value={formData.weightScheme}
                 onChange={e => setFormData({...formData, weightScheme: e.target.value})}
               >
-                {config?.weightingSchemes.map(s => (
+                {config?.weightingSchemes?.map(s => (
                   <option key={s.id} value={s.id}>{s.label}</option>
                 ))}
               </select>

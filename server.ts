@@ -538,7 +538,7 @@ app.get('/api/evaluations/:id', authenticateToken, (req, res) => {
     const scores = db.prepare('SELECT * FROM criteria_scores WHERE evaluationId = ?').all(id);
     const peerFeedbacks = db.prepare('SELECT * FROM peer_feedback WHERE evaluationId = ?').all(id);
     
-    res.json({ ...evalRecord, scores, peerFeedbacks });
+    res.json({ ...evalRecord, criteriaScores: scores, peerFeedbacks });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

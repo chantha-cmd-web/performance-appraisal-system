@@ -14,11 +14,17 @@ export default function CriteriaManagement() {
   const [promptDialog, setPromptDialog] = useState<{ isOpen: boolean, type: 'type' | 'weighting', value: string, title: string, placeholder: string }>({ isOpen: false, type: 'type', value: '', title: '', placeholder: '' });
 
   React.useEffect(() => {
-    if (config) setLocalConfig(JSON.parse(JSON.stringify(config)));
+    if (config) {
+      const cloned = JSON.parse(JSON.stringify(config));
+      if (!cloned.types) cloned.types = [];
+      if (!cloned.weightingSchemes) cloned.weightingSchemes = [];
+      if (!cloned.criteriaSets) cloned.criteriaSets = {};
+      setLocalConfig(cloned);
+    }
   }, [config]);
 
   React.useEffect(() => {
-    if (localConfig && localConfig.types.length > 0) {
+    if (localConfig && localConfig.types && localConfig.types.length > 0) {
       if (!localConfig.types.some(t => t.id === selectedType)) {
         setSelectedType(localConfig.types[0].id);
       }
@@ -183,7 +189,7 @@ export default function CriteriaManagement() {
                 </button>
               </div>
               <div className="space-y-4">
-                {localConfig.types.map((t, i) => (
+                {(localConfig.types || []).map((t, i) => (
                   <div key={t.id} className="flex items-center gap-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
                     <div className="w-48 font-mono text-xs font-bold text-slate-400 dark:text-slate-500 p-2 bg-slate-50 dark:bg-slate-900 rounded-lg">{t.id}</div>
                     <input 
@@ -206,7 +212,7 @@ export default function CriteriaManagement() {
                 </button>
               </div>
               <div className="space-y-4">
-                {localConfig.weightingSchemes.map((s, i) => (
+                {(localConfig.weightingSchemes || []).map((s, i) => (
                   <div key={s.id} className="flex items-center gap-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
                     <div className="w-48 font-mono text-xs font-bold text-slate-400 dark:text-slate-500 p-2 bg-slate-50 dark:bg-slate-900 rounded-lg">{s.id}</div>
                     <input 
@@ -228,7 +234,7 @@ export default function CriteriaManagement() {
                   className="flex-1 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 font-medium text-slate-900 dark:text-slate-100 outline-none"
                   value={selectedType} onChange={e => setSelectedType(e.target.value)}
                 >
-                  {localConfig.types.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                  {(localConfig.types || []).map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
                 </select>
                 <button onClick={addCriterion} className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white font-bold text-sm rounded-lg hover:bg-indigo-700 transition-colors">
                   <Plus size={16} /> Add Criterion

@@ -45,8 +45,8 @@ export function useSettings() {
   const { token } = useAuth();
 
   const fetchSettings = async () => {
-    if (!token) return;
     try {
+      if (!token) return;
       const res = await apiFetch('/api/settings/evaluation_config', {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -94,8 +94,8 @@ export function useSelfEvalSettings() {
   const { token } = useAuth();
 
   const fetchProfiles = async () => {
-    if (!token) return;
     try {
+      if (!token) return;
       const res = await apiFetch('/api/settings/self_eval_profiles', {
         headers: { Authorization: `Bearer ${token}` }
       });
