@@ -1,21 +1,28 @@
-// Initialize mock DB
+const DB_VERSION = '2';
+
+const defaultDb = {
+  users: [
+    { id: 'admin', name: 'Admin User', password: 'password', role: 'superadmin' },
+    { id: 'superadmin', name: 'Super Admin', password: 'super@2026', role: 'superadmin' }
+  ],
+  employees: [],
+  evaluations: [],
+  auditLogs: [],
+  settings: {
+    evaluation_config: '{}',
+    self_eval_profiles: '[]',
+    hr_profiles: '[]'
+  }
+};
+
 const initMockDb = () => {
   try {
-    if (!localStorage.getItem('mock_db')) {
-      localStorage.setItem('mock_db', JSON.stringify({
-        users: [
-          { id: 'admin', name: 'Admin User', password: 'password', role: 'superadmin' },
-          { id: 'superadmin', name: 'Super Admin', password: 'super@2026', role: 'superadmin' }
-        ],
-        employees: [],
-        evaluations: [],
-        auditLogs: [],
-        settings: {
-          evaluation_config: '{}',
-          self_eval_profiles: '[]',
-          hr_profiles: '[]'
-        }
-      }));
+    const storedVersion = localStorage.getItem('mock_db_version');
+    if (storedVersion !== DB_VERSION) {
+      localStorage.setItem('mock_db', JSON.stringify(defaultDb));
+      localStorage.setItem('mock_db_version', DB_VERSION);
+    } else if (!localStorage.getItem('mock_db')) {
+      localStorage.setItem('mock_db', JSON.stringify(defaultDb));
     }
   } catch (e) {
     console.warn('localStorage not available', e);
