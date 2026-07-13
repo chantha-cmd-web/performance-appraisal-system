@@ -539,16 +539,6 @@ function CriterionCard({ criterion, idx, updateCriterion, deleteCriterion, moveC
           <input type="number" min="1" max="100" className="w-full px-4 py-2 bg-transparent border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-900 dark:text-slate-100" value={criterion.max || 10} onChange={e => updateCriterion(idx, 'max', parseInt(e.target.value) || 10)} />
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">ការពិពណ៌នាជាភាសាខ្មែរ<br/><span className="text-[10px] font-normal">Khmer Description</span></label>
-          <textarea rows={2} className="w-full px-4 py-2 bg-transparent border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-sm text-slate-600 dark:text-slate-300 resize-none" value={criterion.khDesc} onChange={e => updateCriterion(idx, 'khDesc', e.target.value)} />
-        </div>
-        <div>
-          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">ការពិពណ៌នាជាភាសាអង់គ្លេស<br/><span className="text-[10px] font-normal">English Description</span></label>
-          <textarea rows={2} className="w-full px-4 py-2 bg-transparent border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-sm text-slate-600 dark:text-slate-300 resize-none" value={criterion.desc} onChange={e => updateCriterion(idx, 'desc', e.target.value)} />
-        </div>
-      </div>
     </div>
   );
 }
