@@ -384,175 +384,122 @@ export default function EvaluationForm() {
 
         <div className="p-8">
           <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-6">ការវាយតម្លៃលើជំនាញវិជ្ជាជីវៈ<br/><span className="text-sm font-medium text-slate-500">Professional Skills Evaluation</span></h2>
+
+          {(() => {
+            const sections = config?.sections?.[formData.evaluationType] || [];
+            const shownIds = new Set<number>();
+            const allBlocks: React.ReactNode[] = [];
+
+            const renderTable = (crits: typeof currentCriteria, blockKey: string) => (
+              <div key={blockKey} className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 mb-8">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50/50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-700 uppercase tracking-wide text-xs">
+                    <tr>
+                      <th className="px-6 py-4 w-12 text-center">#</th>
+                      <th className="px-6 py-4 min-w-[300px]">លក្ខណៈវាយតម្លៃ<br/><span className="text-[10px] font-normal">Criteria</span></th>
+                      {showSelf && <th className="px-6 py-4 text-center w-36">ខ្លួនឯង<br/><span className="text-[10px] font-normal">Self</span></th>}
+                      {showSuper && <th className="px-6 py-4 text-center w-36">អ្នកគ្រប់គ្រង<br/><span className="text-[10px] font-normal">Supervisor</span></th>}
+                      {showSupporter && <th className="px-6 py-4 text-center w-36">អ្នកគាំទ្រ<br/><span className="text-[10px] font-normal">Supporter</span></th>}
+                      {showManagement && <th className="px-6 py-4 text-center w-36">ថ្នាក់គ្រប់គ្រង<br/><span className="text-[10px] font-normal">Management</span></th>}
+                      {showAsp && <th className="px-6 py-4 text-center w-36">គណៈអភិបាល<br/><span className="text-[10px] font-normal">ASP</span></th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                    {crits.map(crit => {
+                      const i = currentCriteria.indexOf(crit);
+                      return (
+                        <tr key={crit.id} className="hover:bg-slate-50/30 dark:hover:bg-slate-700/30 transition-colors">
+                          <td className="px-6 py-4 font-bold text-slate-400 dark:text-slate-500 text-center">{i + 1}</td>
+                          <td className="px-6 py-4">
+                            <div className="font-bold text-slate-900 dark:text-slate-100 text-base">{crit.kh}</div>
+                            <div className="text-slate-500 dark:text-slate-400 font-medium text-xs mt-0.5 mb-2">{crit.en}</div>
+                            <div className="text-slate-700 dark:text-slate-300 font-medium text-sm leading-relaxed">{crit.khDesc}</div>
+                            <div className="text-slate-500 dark:text-slate-400 font-medium text-xs mt-1 leading-relaxed">{crit.desc}</div>
+                          </td>
+                          {showSelf && (
+                            <td className="px-6 py-3">
+                              <input type="number" step="0.5" min="0" max={crit.max || 10} required disabled={!canEditSelf}
+                                className="w-full px-3 py-2 text-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-lg text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-transparent disabled:border-transparent print:border-none print:p-0"
+                                value={criteriaScores[i]?.selfScore ?? ''}
+                                onChange={e => handleCriteriaChange(i, 'selfScore', e.target.value, crit.max)}
+                              />
+                            </td>
+                          )}
+                          {showSuper && (
+                            <td className="px-6 py-3">
+                              <input type="number" step="0.5" min="0" max={crit.max || 10} required disabled={!canEditSuper}
+                                className="w-full px-3 py-2 text-center rounded-lg border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50/50 dark:bg-indigo-500/10 font-bold text-lg text-indigo-700 dark:text-indigo-400 focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-transparent disabled:border-transparent print:border-none print:p-0"
+                                value={criteriaScores[i]?.superScore ?? ''}
+                                onChange={e => handleCriteriaChange(i, 'superScore', e.target.value, crit.max)}
+                              />
+                            </td>
+                          )}
+                          {showSupporter && (
+                            <td className="px-6 py-3">
+                              <input type="number" step="0.5" min="0" max={crit.max || 10} required disabled={!canEditSupporter}
+                                className="w-full px-3 py-2 text-center rounded-lg border border-teal-200 dark:border-teal-500/30 bg-teal-50/50 dark:bg-teal-500/10 font-bold text-lg text-teal-700 dark:text-teal-400 focus:ring-2 focus:ring-teal-500 outline-none disabled:bg-transparent disabled:border-transparent print:border-none print:p-0"
+                                value={criteriaScores[i]?.supporterScore ?? ''}
+                                onChange={e => handleCriteriaChange(i, 'supporterScore', e.target.value, crit.max)}
+                              />
+                            </td>
+                          )}
+                          {showManagement && (
+                            <td className="px-6 py-3">
+                              <input type="number" step="0.5" min="0" max={crit.max || 10} required disabled={!canEditMgmt}
+                                className="w-full px-3 py-2 text-center rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/10 font-bold text-lg text-amber-700 dark:text-amber-400 focus:ring-2 focus:ring-amber-500 outline-none disabled:bg-transparent disabled:border-transparent print:border-none print:p-0"
+                                value={criteriaScores[i]?.managementScore ?? ''}
+                                onChange={e => handleCriteriaChange(i, 'managementScore', e.target.value, crit.max)}
+                              />
+                            </td>
+                          )}
+                          {showAsp && (
+                            <td className="px-6 py-3">
+                              <input type="number" step="0.5" min="0" max={crit.max || 10} required disabled={!canEditMgmt}
+                                className="w-full px-3 py-2 text-center rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50/50 dark:bg-rose-500/10 font-bold text-lg text-rose-700 dark:text-rose-400 focus:ring-2 focus:ring-rose-500 outline-none disabled:bg-transparent disabled:border-transparent print:border-none print:p-0"
+                                value={criteriaScores[i]?.aspScore ?? ''}
+                                onChange={e => handleCriteriaChange(i, 'aspScore', e.target.value, crit.max)}
+                              />
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+
+            sections.forEach(section => {
+              const sectionCriteria = currentCriteria.filter(c => c.sectionId === section.id);
+              if (sectionCriteria.length === 0) return;
+              sectionCriteria.forEach(c => shownIds.add(c.id));
+              allBlocks.push(
+                <div key={`heading-${section.id}`} className="mb-2 mt-6 first:mt-0">
+                  <h3 className="text-lg font-extrabold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">
+                    {section.khName || section.name}
+                    {section.khName && <span className="text-indigo-500 dark:text-indigo-400 font-bold ml-2 normal-case">/ {section.name}</span>}
+                  </h3>
+                </div>
+              );
+              allBlocks.push(renderTable(sectionCriteria, `table-${section.id}`));
+            });
+
+            const uncategorized = currentCriteria.filter(c => !shownIds.has(c.id));
+            if (uncategorized.length > 0) {
+              allBlocks.push(
+                <div key="heading-uncategorized" className="mb-2 mt-6 first:mt-0">
+                  <h3 className="text-lg font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Other Criteria</h3>
+                </div>
+              );
+              allBlocks.push(renderTable(uncategorized, 'table-uncategorized'));
+            }
+
+            return allBlocks;
+          })()}
+
           <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50/50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-700 uppercase tracking-wide text-xs">
-                <tr>
-                  <th className="px-6 py-4 w-12 text-center">#</th>
-                  <th className="px-6 py-4 min-w-[300px]">លក្ខណៈវាយតម្លៃ<br/><span className="text-[10px] font-normal">Criteria</span></th>
-                  {showSelf && <th className="px-6 py-4 text-center w-36">ខ្លួនឯង<br/><span className="text-[10px] font-normal">Self</span></th>}
-                  {showSuper && <th className="px-6 py-4 text-center w-36">អ្នកគ្រប់គ្រង<br/><span className="text-[10px] font-normal">Supervisor</span></th>}
-                  {showSupporter && <th className="px-6 py-4 text-center w-36">អ្នកគាំទ្រ<br/><span className="text-[10px] font-normal">Supporter</span></th>}
-                  {showManagement && <th className="px-6 py-4 text-center w-36">ថ្នាក់គ្រប់គ្រង<br/><span className="text-[10px] font-normal">Management</span></th>}
-                  {showAsp && <th className="px-6 py-4 text-center w-36">គណៈអភិបាល<br/><span className="text-[10px] font-normal">ASP</span></th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-                {(() => {
-                  const sections = config?.sections?.[formData.evaluationType] || [];
-                  const colSpan = 2 + (showSelf ? 1 : 0) + (showSuper ? 1 : 0) + (showSupporter ? 1 : 0) + (showManagement ? 1 : 0) + (showAsp ? 1 : 0);
-                  const rows: React.ReactNode[] = [];
-                  const shownIds = new Set<number>();
-
-                  sections.forEach(section => {
-                    const sectionCriteria = currentCriteria.filter(c => c.sectionId === section.id);
-                    if (sectionCriteria.length === 0) return;
-                    rows.push(
-                      <tr key={`section-${section.id}`} className="bg-indigo-50/70 dark:bg-indigo-500/10 print:bg-indigo-50">
-                        <td colSpan={colSpan} className="px-6 py-3">
-                          <div className="flex items-center gap-2">
-                            <span className="font-extrabold text-indigo-700 dark:text-indigo-300 text-sm uppercase tracking-wider">{section.khName || section.name}</span>
-                            {section.khName && <span className="text-indigo-500 dark:text-indigo-400 font-medium text-sm">/ {section.name}</span>}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                    sectionCriteria.forEach(crit => {
-                      const i = currentCriteria.indexOf(crit);
-                      shownIds.add(crit.id);
-                      rows.push(
-                        <tr key={crit.id} className="hover:bg-slate-50/30 dark:hover:bg-slate-700/30 transition-colors">
-                          <td className="px-6 py-4 font-bold text-slate-400 dark:text-slate-500 text-center">{i + 1}</td>
-                          <td className="px-6 py-4">
-                            <div className="font-bold text-slate-900 dark:text-slate-100 text-base">{crit.kh}</div>
-                            <div className="text-slate-500 dark:text-slate-400 font-medium text-xs mt-0.5 mb-2">{crit.en}</div>
-                            <div className="text-slate-700 dark:text-slate-300 font-medium text-sm leading-relaxed">{crit.khDesc}</div>
-                            <div className="text-slate-500 dark:text-slate-400 font-medium text-xs mt-1 leading-relaxed">{crit.desc}</div>
-                          </td>
-                          {showSelf && (
-                            <td className="px-6 py-3">
-                              <input type="number" step="0.5" min="0" max={crit.max || 10} required disabled={!canEditSelf}
-                                className="w-full px-3 py-2 text-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-lg text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-transparent disabled:border-transparent print:border-none print:p-0"
-                                value={criteriaScores[i]?.selfScore ?? ''}
-                                onChange={e => handleCriteriaChange(i, 'selfScore', e.target.value, crit.max)}
-                              />
-                            </td>
-                          )}
-                          {showSuper && (
-                            <td className="px-6 py-3">
-                              <input type="number" step="0.5" min="0" max={crit.max || 10} required disabled={!canEditSuper}
-                                className="w-full px-3 py-2 text-center rounded-lg border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50/50 dark:bg-indigo-500/10 font-bold text-lg text-indigo-700 dark:text-indigo-400 focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-transparent disabled:border-transparent print:border-none print:p-0"
-                                value={criteriaScores[i]?.superScore ?? ''}
-                                onChange={e => handleCriteriaChange(i, 'superScore', e.target.value, crit.max)}
-                              />
-                            </td>
-                          )}
-                          {showSupporter && (
-                            <td className="px-6 py-3">
-                              <input type="number" step="0.5" min="0" max={crit.max || 10} required disabled={!canEditSupporter}
-                                className="w-full px-3 py-2 text-center rounded-lg border border-teal-200 dark:border-teal-500/30 bg-teal-50/50 dark:bg-teal-500/10 font-bold text-lg text-teal-700 dark:text-teal-400 focus:ring-2 focus:ring-teal-500 outline-none disabled:bg-transparent disabled:border-transparent print:border-none print:p-0"
-                                value={criteriaScores[i]?.supporterScore ?? ''}
-                                onChange={e => handleCriteriaChange(i, 'supporterScore', e.target.value, crit.max)}
-                              />
-                            </td>
-                          )}
-                          {showManagement && (
-                            <td className="px-6 py-3">
-                              <input type="number" step="0.5" min="0" max={crit.max || 10} required disabled={!canEditMgmt}
-                                className="w-full px-3 py-2 text-center rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/10 font-bold text-lg text-amber-700 dark:text-amber-400 focus:ring-2 focus:ring-amber-500 outline-none disabled:bg-transparent disabled:border-transparent print:border-none print:p-0"
-                                value={criteriaScores[i]?.managementScore ?? ''}
-                                onChange={e => handleCriteriaChange(i, 'managementScore', e.target.value, crit.max)}
-                              />
-                            </td>
-                          )}
-                          {showAsp && (
-                            <td className="px-6 py-3">
-                              <input type="number" step="0.5" min="0" max={crit.max || 10} required disabled={!canEditMgmt}
-                                className="w-full px-3 py-2 text-center rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50/50 dark:bg-rose-500/10 font-bold text-lg text-rose-700 dark:text-rose-400 focus:ring-2 focus:ring-rose-500 outline-none disabled:bg-transparent disabled:border-transparent print:border-none print:p-0"
-                                value={criteriaScores[i]?.aspScore ?? ''}
-                                onChange={e => handleCriteriaChange(i, 'aspScore', e.target.value, crit.max)}
-                              />
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    });
-                  });
-
-                  const uncategorized = currentCriteria.filter(c => !shownIds.has(c.id));
-                  if (uncategorized.length > 0) {
-                    rows.push(
-                      <tr key="section-uncategorized" className="bg-slate-50/70 dark:bg-slate-500/10 print:bg-slate-50">
-                        <td colSpan={colSpan} className="px-6 py-3">
-                          <span className="font-extrabold text-slate-500 dark:text-slate-400 text-sm uppercase tracking-wider">Other Criteria</span>
-                        </td>
-                      </tr>
-                    );
-                    uncategorized.forEach(crit => {
-                      const i = currentCriteria.indexOf(crit);
-                      rows.push(
-                        <tr key={crit.id} className="hover:bg-slate-50/30 dark:hover:bg-slate-700/30 transition-colors">
-                          <td className="px-6 py-4 font-bold text-slate-400 dark:text-slate-500 text-center">{i + 1}</td>
-                          <td className="px-6 py-4">
-                            <div className="font-bold text-slate-900 dark:text-slate-100 text-base">{crit.kh}</div>
-                            <div className="text-slate-500 dark:text-slate-400 font-medium text-xs mt-0.5 mb-2">{crit.en}</div>
-                            <div className="text-slate-700 dark:text-slate-300 font-medium text-sm leading-relaxed">{crit.khDesc}</div>
-                            <div className="text-slate-500 dark:text-slate-400 font-medium text-xs mt-1 leading-relaxed">{crit.desc}</div>
-                          </td>
-                          {showSelf && (
-                            <td className="px-6 py-3">
-                              <input type="number" step="0.5" min="0" max={crit.max || 10} required disabled={!canEditSelf}
-                                className="w-full px-3 py-2 text-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-lg text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-transparent disabled:border-transparent print:border-none print:p-0"
-                                value={criteriaScores[i]?.selfScore ?? ''}
-                                onChange={e => handleCriteriaChange(i, 'selfScore', e.target.value, crit.max)}
-                              />
-                            </td>
-                          )}
-                          {showSuper && (
-                            <td className="px-6 py-3">
-                              <input type="number" step="0.5" min="0" max={crit.max || 10} required disabled={!canEditSuper}
-                                className="w-full px-3 py-2 text-center rounded-lg border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50/50 dark:bg-indigo-500/10 font-bold text-lg text-indigo-700 dark:text-indigo-400 focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-transparent disabled:border-transparent print:border-none print:p-0"
-                                value={criteriaScores[i]?.superScore ?? ''}
-                                onChange={e => handleCriteriaChange(i, 'superScore', e.target.value, crit.max)}
-                              />
-                            </td>
-                          )}
-                          {showSupporter && (
-                            <td className="px-6 py-3">
-                              <input type="number" step="0.5" min="0" max={crit.max || 10} required disabled={!canEditSupporter}
-                                className="w-full px-3 py-2 text-center rounded-lg border border-teal-200 dark:border-teal-500/30 bg-teal-50/50 dark:bg-teal-500/10 font-bold text-lg text-teal-700 dark:text-teal-400 focus:ring-2 focus:ring-teal-500 outline-none disabled:bg-transparent disabled:border-transparent print:border-none print:p-0"
-                                value={criteriaScores[i]?.supporterScore ?? ''}
-                                onChange={e => handleCriteriaChange(i, 'supporterScore', e.target.value, crit.max)}
-                              />
-                            </td>
-                          )}
-                          {showManagement && (
-                            <td className="px-6 py-3">
-                              <input type="number" step="0.5" min="0" max={crit.max || 10} required disabled={!canEditMgmt}
-                                className="w-full px-3 py-2 text-center rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/10 font-bold text-lg text-amber-700 dark:text-amber-400 focus:ring-2 focus:ring-amber-500 outline-none disabled:bg-transparent disabled:border-transparent print:border-none print:p-0"
-                                value={criteriaScores[i]?.managementScore ?? ''}
-                                onChange={e => handleCriteriaChange(i, 'managementScore', e.target.value, crit.max)}
-                              />
-                            </td>
-                          )}
-                          {showAsp && (
-                            <td className="px-6 py-3">
-                              <input type="number" step="0.5" min="0" max={crit.max || 10} required disabled={!canEditMgmt}
-                                className="w-full px-3 py-2 text-center rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50/50 dark:bg-rose-500/10 font-bold text-lg text-rose-700 dark:text-rose-400 focus:ring-2 focus:ring-rose-500 outline-none disabled:bg-transparent disabled:border-transparent print:border-none print:p-0"
-                                value={criteriaScores[i]?.aspScore ?? ''}
-                                onChange={e => handleCriteriaChange(i, 'aspScore', e.target.value, crit.max)}
-                              />
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    });
-                  }
-
-                  return rows;
-                })()}
-              </tbody>
-              <tfoot className="bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700">
+              <tfoot className="bg-slate-50 dark:bg-slate-900/50">
                 <tr>
                   <td colSpan={2} className="px-6 py-4 font-extrabold text-slate-800 dark:text-slate-100 text-right uppercase tracking-widest text-xs">Total Scores / សរុប (Max {maxPossibleScore})</td>
                   {showSelf && <td className="px-6 py-4 text-center font-extrabold text-xl text-slate-700 dark:text-slate-300">{totalSelf.toFixed(1)}</td>}
