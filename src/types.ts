@@ -1,7 +1,7 @@
 export interface User {
   id: string;
   name: string;
-  role: 'admin' | 'superadmin';
+  role: 'admin' | 'superadmin' | 'supervisor' | 'supporter';
 }
 
 export interface AuthResponse {

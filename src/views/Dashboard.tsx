@@ -266,34 +266,62 @@ export default function Dashboard() {
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                               </button>
                               
-                              {(user?.role === 'superadmin' || evalRecord.createdBy === user?.id) && (
-                                <button onClick={() => {
-                                  navigate(`/evaluation?id=${evalRecord.id}`);
-                                }} className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors" title="Edit">
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
-                                </button>
-                              )}
-                              
-                              {(user?.role === 'superadmin' || evalRecord.createdBy === user?.id) && (
-                                <button onClick={async () => {
-                                  if (window.confirm("Are you sure you want to delete this appraisal?")) {
-                                    try {
-                                      const res = await apiFetch(`/api/evaluations/${evalRecord.id}`, {
-                                        method: 'DELETE',
-                                        headers: { Authorization: `Bearer ${token}` }
-                                      });
-                                      if (res.ok) {
-                                        fetchEvals();
-                                      } else {
-                                        const err = await res.json();
-                                        alert(err.error);
-                                      }
-                                    } catch(e) { alert('Error deleting appraisal'); }
-                                  }
-                                }} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors" title="Delete">
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-                                </button>
-                              )}
+                              {(() => {
+                                const isCreator = evalRecord.createdBy === user?.id;
+                                const isAppraiser = evalRecord.appraiser === user?.id;
+                                const isSupporter = evalRecord.supporter === user?.id;
+                                const status = evalRecord.status || 'Draft';
+
+                                const isAdmin = user?.role === 'superadmin' || user?.role === 'admin';
+                                const canEdit = isAdmin || isCreator ||
+                                  (isAppraiser && status === 'Waiting for Supervisor') ||
+                                  (isSupporter && status === 'Waiting for Supporter');
+
+                                const canDelete = isAdmin || isCreator;
+
+                                const showEvaluate = (isAppraiser && status === 'Waiting for Supervisor') ||
+                                  (isSupporter && status === 'Waiting for Supporter');
+
+                                return (
+                                  <>
+                                    {showEvaluate && (
+                                      <button onClick={() => {
+                                        navigate(`/evaluation?id=${evalRecord.id}`);
+                                      }} className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors shadow-sm" title="Evaluate">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+                                        Evaluate
+                                      </button>
+                                    )}
+                                    {canEdit && !showEvaluate && (
+                                      <button onClick={() => {
+                                        navigate(`/evaluation?id=${evalRecord.id}`);
+                                      }} className="p-1.5 text-slate-400 hover:text-blue-600 transition-colors" title="Edit">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+                                      </button>
+                                    )}
+                                    {canDelete && (
+                                      <button onClick={async () => {
+                                        if (window.confirm("Are you sure you want to delete this appraisal?")) {
+                                          try {
+                                            const res = await apiFetch(`/api/evaluations/${evalRecord.id}`, {
+                                              method: 'DELETE',
+                                              headers: { Authorization: `Bearer ${token}` }
+                                            });
+                                            if (res.ok) {
+                                              fetchEvals();
+                                            } else {
+                                              const err = await res.json();
+                                              alert(err.error);
+                                            }
+                                          } catch(e) { alert('Error deleting appraisal'); }
+                                        }
+                                      }} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors" title="Delete">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                                      </button>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </div>
                           </td>
                         </tr>

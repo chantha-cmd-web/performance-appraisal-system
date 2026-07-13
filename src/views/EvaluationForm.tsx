@@ -74,7 +74,14 @@ export default function EvaluationForm() {
           createdByName: data.createdByName,
           evaluatorComments: data.evaluatorComments || ''
         });
-        setCriteriaScores(data.criteriaScores || data.scores || []);
+        setCriteriaScores((data.criteriaScores || data.scores || []).map((s: any) => ({
+          criteriaId: s.criteriaId,
+          selfScore: s.selfScore ?? 0,
+          superScore: s.superScore ?? 0,
+          supporterScore: s.supporterScore ?? 0,
+          managementScore: s.managementScore ?? 0,
+          aspScore: s.aspScore ?? 0,
+        })));
         setPeerFeedbacks(data.peerFeedbacks || []);
       } else {
         alert('Evaluation not found');
@@ -222,11 +229,13 @@ export default function EvaluationForm() {
   const isEmployee = user?.id === formData.employeeId;
   const isAppraiser = user?.id === formData.appraiser;
   const isSupporter = user?.id === formData.supporter;
+  const isSupervisorRole = user?.role === 'supervisor';
+  const isSupporterRole = user?.role === 'supporter';
 
   const canEditSelf = !isViewOnly && (isAdmin || (isEmployee && (formData.status === 'Draft' || formData.status === 'Self Evaluation Pending')));
-  const canEditSuper = !isViewOnly && (isAdmin || (isAppraiser && formData.status === 'Waiting for Supervisor'));
-  const canEditSupporter = !isViewOnly && (isAdmin || (isSupporter && formData.status === 'Waiting for Supporter'));
-  const canEditMgmt = !isViewOnly && isAdmin; // Only admin for management/ASP score
+  const canEditSuper = !isViewOnly && (isAdmin || ((isAppraiser || isSupervisorRole) && formData.status === 'Waiting for Supervisor'));
+  const canEditSupporter = !isViewOnly && (isAdmin || ((isSupporter || isSupporterRole) && formData.status === 'Waiting for Supporter'));
+  const canEditMgmt = !isViewOnly && isAdmin;
   
   // Submit actions handling
   const nextStatus = (action: 'save' | 'submit') => {
