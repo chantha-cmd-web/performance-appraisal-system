@@ -122,6 +122,19 @@ export default function Layout() {
                 <Users size={20} />
                 <span>Manage Users</span>
               </NavLink>
+
+              <NavLink
+                to="/hr-settings"
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all whitespace-nowrap",
+                    isActive ? "bg-indigo-500/10 text-indigo-400" : "text-slate-400 hover:bg-white/5 hover:text-white"
+                  )
+                }
+              >
+                <Settings size={20} />
+                <span>HR Settings</span>
+              </NavLink>
               
               <NavLink
                 to="/settings"

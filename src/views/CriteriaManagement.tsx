@@ -2,9 +2,10 @@ import { apiFetch } from '../mockApi';
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings, EvaluationConfig, Criterion, EvaluationType, WeightingScheme } from '../hooks/useSettings';
-import { Save, Plus, Trash2, Settings, List, PlusCircle } from 'lucide-react';
+import { Save, Plus, Trash2, Settings, List, PlusCircle, ShieldAlert } from 'lucide-react';
 
 export default function CriteriaManagement() {
+  const { user } = useAuth();
   const { config, loading, saveSettings } = useSettings();
   const [activeTab, setActiveTab] = useState<'types' | 'weighting' | 'criteria'>('criteria');
   const [selectedType, setSelectedType] = useState<string>('management');
@@ -26,6 +27,18 @@ export default function CriteriaManagement() {
 
   if (loading || !localConfig) {
     return <div className="p-12 text-center font-bold text-slate-500">Loading Configuration...</div>;
+  }
+
+  if (user?.role !== 'superadmin') {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4">
+          <ShieldAlert size={32} />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-800">Access Denied</h2>
+        <p className="text-slate-500 mt-2">Only Super Administrators can access this area.</p>
+      </div>
+    );
   }
 
   const handleSave = async () => {

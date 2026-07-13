@@ -74,7 +74,7 @@ export default function EvaluationForm() {
           createdByName: data.createdByName,
           evaluatorComments: data.evaluatorComments || ''
         });
-        setCriteriaScores(data.scores || []);
+        setCriteriaScores(data.criteriaScores || data.scores || []);
         setPeerFeedbacks(data.peerFeedbacks || []);
       } else {
         alert('Evaluation not found');

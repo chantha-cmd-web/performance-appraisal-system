@@ -1,7 +1,7 @@
 import { apiFetch } from '../mockApi';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Search, Plus, Upload, Download, Trash2, Edit2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Search, Plus, Upload, Download, Trash2, Edit2, CheckCircle2, AlertCircle, ShieldAlert, X } from 'lucide-react';
 import { Employee } from '../types';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
@@ -12,7 +12,35 @@ export default function EmployeeProfiles() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+  const [editingEmp, setEditingEmp] = useState<Employee | null>(null);
+  const [empForm, setEmpForm] = useState({
+    id: '',
+    name: '',
+    khmerName: '',
+    campus: '',
+    department: '',
+    position: '',
+    category: '',
+    supervisorId: '',
+    supporterId: '',
+    evalModel: '',
+    evalPeriod: ''
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  if (user?.role !== 'superadmin') {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4">
+          <ShieldAlert size={32} />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-800">Access Denied</h2>
+        <p className="text-slate-500 mt-2">Only Super Administrators can access Employee Profiles.</p>
+      </div>
+    );
+  }
 
   const fetchEmployees = async () => {
     try {
@@ -48,6 +76,59 @@ export default function EmployeeProfiles() {
       }
     } catch (err) {
       toast.error('Failed to delete employee');
+    }
+  };
+
+  const openAddEmployee = () => {
+    setModalMode('add');
+    setEditingEmp(null);
+    setEmpForm({ id: '', name: '', khmerName: '', campus: '', department: '', position: '', category: '', supervisorId: '', supporterId: '', evalModel: '', evalPeriod: '' });
+    setShowModal(true);
+  };
+
+  const openEditEmployee = (emp: Employee) => {
+    setModalMode('edit');
+    setEditingEmp(emp);
+    setEmpForm({
+      id: emp.id,
+      name: emp.name,
+      khmerName: emp.khmerName || '',
+      campus: emp.campus,
+      department: emp.department || '',
+      position: emp.position,
+      category: emp.category || '',
+      supervisorId: emp.supervisorId || '',
+      supporterId: emp.supporterId || '',
+      evalModel: emp.evalModel || '',
+      evalPeriod: emp.evalPeriod || ''
+    });
+    setShowModal(true);
+  };
+
+  const handleSaveEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!empForm.id || !empForm.name) {
+      toast.error('Staff ID and Name are required');
+      return;
+    }
+    try {
+      const res = await apiFetch('/api/employees', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(empForm)
+      });
+      if (res.ok) {
+        toast.success(modalMode === 'edit' ? 'Employee updated' : 'Employee added');
+        setShowModal(false);
+        fetchEmployees();
+      } else {
+        toast.error('Failed to save employee');
+      }
+    } catch (err) {
+      toast.error('Failed to save employee');
     }
   };
 
@@ -175,13 +256,12 @@ export default function EmployeeProfiles() {
           <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-50 font-semibold shadow-sm">
             <Download size={18} /> Export
           </button>
-          {user?.role === 'superadmin' && (
-            <>
-              <button onClick={() => setIsImportModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-500/20 font-semibold shadow-sm">
-                <Upload size={18} /> Bulk Import
-              </button>
-            </>
-          )}
+          <button onClick={openAddEmployee} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm transition-colors text-sm">
+            <Plus size={16} /> Add Employee
+          </button>
+          <button onClick={() => setIsImportModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-500/20 font-semibold shadow-sm">
+            <Upload size={18} /> Bulk Import
+          </button>
         </div>
       </div>
 
@@ -208,7 +288,7 @@ export default function EmployeeProfiles() {
                 <th className="px-6 py-4">Campus / Department</th>
                 <th className="px-6 py-4">Position</th>
                 <th className="px-6 py-4">Supervisor / Supporter</th>
-                {user?.role === 'superadmin' && <th className="px-6 py-4 text-right">Actions</th>}
+                <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
@@ -233,13 +313,16 @@ export default function EmployeeProfiles() {
                       <div>Sup: {e.supervisorId || 'N/A'}</div>
                       <div>Sup2: {e.supporterId || 'N/A'}</div>
                     </td>
-                    {user?.role === 'superadmin' && (
-                      <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => openEditEmployee(e)} className="p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                          <Edit2 size={16} />
+                        </button>
                         <button onClick={() => deleteEmployee(e.id)} className="p-2 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10">
                           <Trash2 size={18} />
                         </button>
-                      </td>
-                    )}
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -247,6 +330,69 @@ export default function EmployeeProfiles() {
           </table>
         </div>
       </div>
+
+      {showModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-700">
+              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{modalMode === 'add' ? 'Add New Employee' : 'Edit Employee'}</h2>
+              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"><X size={20} /></button>
+            </div>
+            <form onSubmit={handleSaveEmployee} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Staff ID *</label>
+                  <input required disabled={modalMode === 'edit'} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 outline-none" value={empForm.id} onChange={e => setEmpForm({...empForm, id: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Employee Name *</label>
+                  <input required className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none" value={empForm.name} onChange={e => setEmpForm({...empForm, name: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Khmer Name</label>
+                  <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none" value={empForm.khmerName} onChange={e => setEmpForm({...empForm, khmerName: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Campus *</label>
+                  <input required className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none" value={empForm.campus} onChange={e => setEmpForm({...empForm, campus: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Department</label>
+                  <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none" value={empForm.department} onChange={e => setEmpForm({...empForm, department: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Position *</label>
+                  <input required className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none" value={empForm.position} onChange={e => setEmpForm({...empForm, position: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Category</label>
+                  <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none" value={empForm.category} onChange={e => setEmpForm({...empForm, category: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Supervisor ID</label>
+                  <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none" value={empForm.supervisorId} onChange={e => setEmpForm({...empForm, supervisorId: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Supporter ID</label>
+                  <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none" value={empForm.supporterId} onChange={e => setEmpForm({...empForm, supporterId: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Eval Model</label>
+                  <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none" value={empForm.evalModel} onChange={e => setEmpForm({...empForm, evalModel: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Eval Period</label>
+                  <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none" value={empForm.evalPeriod} onChange={e => setEmpForm({...empForm, evalPeriod: e.target.value})} />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700">
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-slate-600 dark:text-slate-400 font-medium hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">Cancel</button>
+                <button type="submit" className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-sm transition-colors">Save Employee</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {isImportModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">

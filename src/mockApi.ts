@@ -173,7 +173,9 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
         if (!db.users) db.users = [];
         const idx = db.users.findIndex((u: any) => u.id === id);
         if (idx >= 0) {
-           db.users[idx] = { ...db.users[idx], ...body, id: db.users[idx].id };
+           const updated = { ...db.users[idx], ...body, id: db.users[idx].id };
+           if (!body.password) delete updated.password;
+           db.users[idx] = updated;
            saveDb(db);
         }
         return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -186,8 +188,17 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
     }
 
     // Audit Logs
-    if (url.includes('/api/audit-logs') && method === 'GET') {
-      return new Response(JSON.stringify(db.auditLogs || []), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    if (url.includes('/api/audit-logs')) {
+      if (method === 'GET') {
+        return new Response(JSON.stringify(db.auditLogs || []), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (method === 'POST') {
+        if (!db.auditLogs) db.auditLogs = [];
+        const entry = { ...body, id: db.auditLogs.length + 1, timestamp: new Date().toISOString() };
+        db.auditLogs.push(entry);
+        saveDb(db);
+        return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
     }
 
     // Notifications
@@ -206,12 +217,25 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
     if (url.includes('/api/data/reset/') && method === 'POST') {
       const type = url.split('/').pop()!;
       if (type === 'all') {
-        db.users = [{ id: 'admin', name: 'Admin User', password: 'password', role: 'superadmin' }];
+        db.users = [
+          { id: 'admin', name: 'Admin User', password: 'password', role: 'superadmin' },
+          { id: 'superadmin', name: 'Super Admin', password: 'super@2026', role: 'superadmin' }
+        ];
         db.employees = [];
         db.evaluations = [];
         db.auditLogs = [];
+        if (db.settings) {
+          db.settings.evaluation_config = '{}';
+          db.settings.self_eval_profiles = '[]';
+          db.settings.hr_profiles = '[]';
+        }
       } else if (type === 'evaluations') {
         db.evaluations = [];
+      } else if (type === 'users') {
+        db.users = [
+          { id: 'admin', name: 'Admin User', password: 'password', role: 'superadmin' },
+          { id: 'superadmin', name: 'Super Admin', password: 'super@2026', role: 'superadmin' }
+        ];
       }
       saveDb(db);
       return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
