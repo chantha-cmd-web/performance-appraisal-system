@@ -383,7 +383,6 @@ export default function EvaluationForm() {
         </div>
 
         <div className="p-8">
-          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-6">ការវាយតម្លៃលើជំនាញវិជ្ជាជីវៈ<br/><span className="text-sm font-medium text-slate-500">Professional Skills Evaluation</span></h2>
 
           {(() => {
             const sections = config?.sections?.[formData.evaluationType] || [];
