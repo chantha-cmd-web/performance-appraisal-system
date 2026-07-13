@@ -309,6 +309,8 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
         }
       } else if (type === 'evaluations') {
         db.evaluations = [];
+      } else if (type === 'employees') {
+        db.employees = [];
       } else if (type === 'users') {
         db.users = [
           { id: 'admin', name: 'Admin User', password: 'password', role: 'superadmin' },
