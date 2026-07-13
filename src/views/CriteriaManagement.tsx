@@ -1,8 +1,8 @@
 import { apiFetch } from '../mockApi';
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useSettings, EvaluationConfig, Criterion, EvaluationType, WeightingScheme } from '../hooks/useSettings';
-import { Save, Plus, Trash2, Settings, List, PlusCircle, ShieldAlert } from 'lucide-react';
+import { useSettings, EvaluationConfig, Criterion, CriterionSection, EvaluationType, WeightingScheme } from '../hooks/useSettings';
+import { Save, Plus, Trash2, Settings, List, PlusCircle, ShieldAlert, ChevronDown, ChevronRight, FolderOpen, GripVertical } from 'lucide-react';
 
 export default function CriteriaManagement() {
   const { user } = useAuth();
@@ -12,6 +12,8 @@ export default function CriteriaManagement() {
   const [saving, setSaving] = useState(false);
   const [localConfig, setLocalConfig] = useState<EvaluationConfig | null>(null);
   const [promptDialog, setPromptDialog] = useState<{ isOpen: boolean, type: 'type' | 'weighting', value: string, title: string, placeholder: string }>({ isOpen: false, type: 'type', value: '', title: '', placeholder: '' });
+  const [sectionDialog, setSectionDialog] = useState<{ isOpen: boolean, editId?: string, name: string, khName: string }>({ isOpen: false, name: '', khName: '' });
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
   React.useEffect(() => {
     if (config) {
@@ -19,6 +21,7 @@ export default function CriteriaManagement() {
       if (!cloned.types) cloned.types = [];
       if (!cloned.weightingSchemes) cloned.weightingSchemes = [];
       if (!cloned.criteriaSets) cloned.criteriaSets = {};
+      if (!cloned.sections) cloned.sections = {};
       setLocalConfig(cloned);
     }
   }, [config]);
@@ -52,7 +55,6 @@ export default function CriteriaManagement() {
     const success = await saveSettings(localConfig);
     setSaving(false);
     if (success) {
-      // Show a temporary success message instead of alert
       const msg = document.createElement('div');
       msg.className = 'fixed bottom-4 right-4 bg-emerald-600 text-white px-6 py-3 rounded-xl shadow-lg z-50 font-bold';
       msg.textContent = 'Settings saved successfully!';
@@ -81,15 +83,16 @@ export default function CriteriaManagement() {
     if (!id) return;
 
     if (promptDialog.type === 'type') {
-      if (localConfig.types.find(t => t.id === id)) return; // Prevent duplicate
+      if (localConfig.types.find(t => t.id === id)) return;
       setLocalConfig({
         ...localConfig,
         types: [...localConfig.types, { id, label: `New Type (${id})` }],
-        criteriaSets: { ...localConfig.criteriaSets, [id]: [] }
+        criteriaSets: { ...localConfig.criteriaSets, [id]: [] },
+        sections: { ...localConfig.sections, [id]: [] }
       });
       setSelectedType(id);
     } else {
-      if (localConfig.weightingSchemes.find(w => w.id === id)) return; // Prevent duplicate
+      if (localConfig.weightingSchemes.find(w => w.id === id)) return;
       setLocalConfig({
         ...localConfig,
         weightingSchemes: [...localConfig.weightingSchemes, { id, label: `New Scheme (${id})` }]
@@ -110,7 +113,9 @@ export default function CriteriaManagement() {
       const newTypes = localConfig.types.filter((_, i) => i !== idx);
       const newSets = { ...localConfig.criteriaSets };
       delete newSets[typeId];
-      setLocalConfig({ ...localConfig, types: newTypes, criteriaSets: newSets });
+      const newSections = { ...localConfig.sections };
+      delete newSections[typeId];
+      setLocalConfig({ ...localConfig, types: newTypes, criteriaSets: newSets, sections: newSections });
       if (selectedType === typeId) setSelectedType(newTypes[0]?.id || '');
     }
   };
@@ -128,15 +133,73 @@ export default function CriteriaManagement() {
     }
   };
 
-  const addCriterion = () => {
+  // --- Section operations ---
+  const getCurrentSections = (): CriterionSection[] => {
+    return localConfig.sections?.[selectedType] || [];
+  };
+
+  const openAddSection = () => {
+    setSectionDialog({ isOpen: true, name: '', khName: '' });
+  };
+
+  const openEditSection = (section: CriterionSection) => {
+    setSectionDialog({ isOpen: true, editId: section.id, name: section.name, khName: section.khName });
+  };
+
+  const handleSectionSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = sectionDialog.name.trim();
+    const khName = sectionDialog.khName.trim();
+    if (!name) return;
+
+    const sections = { ...(localConfig.sections || {}) };
+    const typeSections = [...(sections[selectedType] || [])];
+
+    if (sectionDialog.editId) {
+      const idx = typeSections.findIndex(s => s.id === sectionDialog.editId);
+      if (idx >= 0) {
+        typeSections[idx] = { ...typeSections[idx], name, khName };
+      }
+    } else {
+      const id = 'section_' + Date.now();
+      typeSections.push({ id, name, khName });
+    }
+    sections[selectedType] = typeSections;
+    setLocalConfig({ ...localConfig, sections });
+    setSectionDialog({ isOpen: false, name: '', khName: '' });
+  };
+
+  const deleteSection = (sectionId: string) => {
+    if (!confirm('Delete this section? Criteria in this section will be moved to Uncategorized.')) return;
+    const sections = { ...(localConfig.sections || {}) };
+    sections[selectedType] = (sections[selectedType] || []).filter(s => s.id !== sectionId);
+    const newSets = { ...localConfig.criteriaSets };
+    const typeCriteria = [...(newSets[selectedType] || [])];
+    typeCriteria.forEach(c => {
+      if (c.sectionId === sectionId) {
+        delete c.sectionId;
+      }
+    });
+    newSets[selectedType] = typeCriteria;
+    setLocalConfig({ ...localConfig, sections, criteriaSets: newSets });
+  };
+
+  const toggleSectionCollapse = (sectionId: string) => {
+    setCollapsedSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
+  };
+
+  // --- Criterion operations ---
+  const addCriterion = (sectionId?: string) => {
     if (!selectedType) {
       alert("Please add or select an Evaluation Type first.");
       return;
     }
     const newSets = { ...localConfig.criteriaSets };
+    const newCriterion: Criterion = { id: Date.now(), kh: 'លក្ខណៈថ្មី', khDesc: 'ការពិពណ៌នាថ្មី', en: 'New Criteria', desc: 'New Description', max: 10 };
+    if (sectionId) newCriterion.sectionId = sectionId;
     newSets[selectedType] = [
       ...(newSets[selectedType] || []),
-      { id: Date.now(), kh: 'លក្ខណៈថ្មី', khDesc: 'ការពិពណ៌នាថ្មី', en: 'New Criteria', desc: 'New Description', max: 10 }
+      newCriterion
     ];
     setLocalConfig({ ...localConfig, criteriaSets: newSets });
   };
@@ -154,6 +217,23 @@ export default function CriteriaManagement() {
     newSets[selectedType] = newSets[selectedType].filter((_, i) => i !== idx);
     setLocalConfig({ ...localConfig, criteriaSets: newSets });
   };
+
+  const moveCriterionSection = (idx: number, sectionId: string) => {
+    const newSets = { ...localConfig.criteriaSets };
+    const newArr = [...(newSets[selectedType] || [])];
+    if (sectionId) {
+      newArr[idx] = { ...newArr[idx], sectionId };
+    } else {
+      const { sectionId: _, ...rest } = newArr[idx];
+      newArr[idx] = rest as Criterion;
+    }
+    newSets[selectedType] = newArr;
+    setLocalConfig({ ...localConfig, criteriaSets: newSets });
+  };
+
+  const allCriteria = localConfig.criteriaSets[selectedType] || [];
+  const sections = getCurrentSections();
+  const unsectionedCriteria = allCriteria.filter(c => !c.sectionId || !sections.find(s => s.id === c.sectionId));
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -176,7 +256,7 @@ export default function CriteriaManagement() {
         <div className="flex overflow-x-auto border-b border-slate-100 dark:border-slate-700 p-2 gap-2 bg-slate-50 dark:bg-slate-900/50">
           <TabButton active={activeTab === 'types'} onClick={() => setActiveTab('types')} icon={<List size={18}/>} label="Evaluation Types" />
           <TabButton active={activeTab === 'weighting'} onClick={() => setActiveTab('weighting')} icon={<Settings size={18}/>} label="Weighting Schemes" />
-          <TabButton active={activeTab === 'criteria'} onClick={() => setActiveTab('criteria')} icon={<PlusCircle size={18}/>} label="Criteria Sets" />
+          <TabButton active={activeTab === 'criteria'} onClick={() => setActiveTab('criteria')} icon={<PlusCircle size={18}/>} label="Criteria & Sections" />
         </div>
 
         <div className="p-8">
@@ -229,67 +309,91 @@ export default function CriteriaManagement() {
           {activeTab === 'criteria' && (
             <div className="space-y-8">
               <div className="flex flex-col sm:flex-row sm:items-center gap-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-                <label className="font-bold text-slate-700 dark:text-slate-300">Select Type to Edit:</label>
+                <label className="font-bold text-slate-700 dark:text-slate-300">Select Type:</label>
                 <select 
                   className="flex-1 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-indigo-500 font-medium text-slate-900 dark:text-slate-100 outline-none"
                   value={selectedType} onChange={e => setSelectedType(e.target.value)}
                 >
                   {(localConfig.types || []).map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
                 </select>
-                <button onClick={addCriterion} className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white font-bold text-sm rounded-lg hover:bg-indigo-700 transition-colors">
+                <button onClick={() => openAddSection()} className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 text-white font-bold text-sm rounded-lg hover:bg-emerald-700 transition-colors">
+                  <FolderOpen size={16} /> Add Section
+                </button>
+                <button onClick={() => addCriterion()} className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white font-bold text-sm rounded-lg hover:bg-indigo-700 transition-colors">
                   <Plus size={16} /> Add Criterion
                 </button>
               </div>
 
-              <div className="space-y-6">
-                {(localConfig.criteriaSets[selectedType] || []).map((c, i) => (
-                  <div key={c.id} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 relative group hover:border-indigo-200 dark:hover:border-indigo-500/50 hover:shadow-sm transition-all">
-                    <button 
-                      onClick={() => deleteCriterion(i)} 
-                      className="absolute top-4 right-4 p-2 text-slate-300 dark:text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
-                    >
-                      <Trash2 size={18}/>
+              {/* Sections */}
+              {sections.map(section => (
+                <div key={section.id} className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                  <div className="flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-indigo-50 to-slate-50 dark:from-indigo-500/10 dark:to-slate-900/50 border-b border-slate-200 dark:border-slate-700">
+                    <button onClick={() => toggleSectionCollapse(section.id)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                      {collapsedSections[section.id] ? <ChevronRight size={20} /> : <ChevronDown size={20} />}
                     </button>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">ចំណងជើងជាភាសាខ្មែរ<br/><span className="text-[10px] font-normal">Khmer Title</span></label>
-                        <input className="w-full px-4 py-2 bg-transparent border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-900 dark:text-slate-100" value={c.kh} onChange={e => updateCriterion(i, 'kh', e.target.value)} />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">ចំណងជើងជាភាសាអង់គ្លេស<br/><span className="text-[10px] font-normal">English Title</span></label>
-                        <input className="w-full px-4 py-2 bg-transparent border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-900 dark:text-slate-100" value={c.en} onChange={e => updateCriterion(i, 'en', e.target.value)} />
-                      </div>
+                    <div className="flex-1">
+                      <span className="font-bold text-slate-800 dark:text-slate-100">{section.khName}</span>
+                      <span className="text-slate-500 dark:text-slate-400 font-medium ml-2 text-sm">/ {section.name}</span>
+                      <span className="ml-2 text-xs font-medium text-slate-400 dark:text-slate-500 bg-slate-200/50 dark:bg-slate-700/50 px-2 py-0.5 rounded-full">
+                        {(allCriteria.filter(c => c.sectionId === section.id)).length} criteria
+                      </span>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
-                      <div className="md:col-span-1">
-                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">ពិន្ទុអតិបរមា<br/><span className="text-[10px] font-normal">Max Score</span></label>
-                        <input type="number" min="1" max="100" className="w-full px-4 py-2 bg-transparent border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-900 dark:text-slate-100" value={c.max || 10} onChange={e => updateCriterion(i, 'max', parseInt(e.target.value) || 10)} />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">ការពិពណ៌នាជាភាសាខ្មែរ<br/><span className="text-[10px] font-normal">Khmer Description</span></label>
-                        <textarea rows={2} className="w-full px-4 py-2 bg-transparent border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-sm text-slate-600 dark:text-slate-300 resize-none" value={c.khDesc} onChange={e => updateCriterion(i, 'khDesc', e.target.value)} />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">ការពិពណ៌នាជាភាសាអង់គ្លេស<br/><span className="text-[10px] font-normal">English Description</span></label>
-                        <textarea rows={2} className="w-full px-4 py-2 bg-transparent border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-sm text-slate-600 dark:text-slate-300 resize-none" value={c.desc} onChange={e => updateCriterion(i, 'desc', e.target.value)} />
-                      </div>
-                    </div>
+                    <button onClick={() => openEditSection(section)} className="px-3 py-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/10 rounded-lg transition-colors">Edit</button>
+                    <button onClick={() => deleteSection(section.id)} className="px-3 py-1 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors">Delete</button>
+                    <button onClick={() => addCriterion(section.id)} className="flex items-center gap-1 px-3 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-lg transition-colors">
+                      <Plus size={14} /> Add
+                    </button>
                   </div>
-                ))}
-                {(localConfig.criteriaSets[selectedType] || []).length === 0 && (
-                  <div className="text-center py-12 text-slate-400 dark:text-slate-500 font-medium border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
-                    No criteria defined for this type.
+                  {!collapsedSections[section.id] && (
+                    <div className="p-4 space-y-4 bg-white dark:bg-slate-800">
+                      {allCriteria.filter(c => c.sectionId === section.id).map((c, i) => {
+                        const realIdx = allCriteria.indexOf(c);
+                        return (
+                          <CriterionCard key={c.id} criterion={c} idx={realIdx} updateCriterion={updateCriterion} deleteCriterion={deleteCriterion} moveCriterionSection={moveCriterionSection} sections={sections} selectedSectionId={c.sectionId} />
+                        );
+                      })}
+                      {allCriteria.filter(c => c.sectionId === section.id).length === 0 && (
+                        <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-sm font-medium border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg">
+                          No criteria in this section. Click "Add" above.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Uncategorized criteria */}
+              {unsectionedCriteria.length > 0 && (
+                <div className="border border-dashed border-slate-300 dark:border-slate-600 rounded-xl overflow-hidden">
+                  <div className="flex items-center gap-3 px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
+                    <span className="font-bold text-slate-500 dark:text-slate-400">Uncategorized</span>
+                    <span className="text-xs font-medium text-slate-400 dark:text-slate-500 bg-slate-200/50 dark:bg-slate-700/50 px-2 py-0.5 rounded-full">
+                      {unsectionedCriteria.length} criteria
+                    </span>
                   </div>
-                )}
-              </div>
+                  <div className="p-4 space-y-4 bg-white dark:bg-slate-800">
+                    {unsectionedCriteria.map(c => {
+                      const realIdx = allCriteria.indexOf(c);
+                      return (
+                        <CriterionCard key={c.id} criterion={c} idx={realIdx} updateCriterion={updateCriterion} deleteCriterion={deleteCriterion} moveCriterionSection={moveCriterionSection} sections={sections} selectedSectionId={c.sectionId} />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Empty state */}
+              {sections.length === 0 && unsectionedCriteria.length === 0 && (
+                <div className="text-center py-12 text-slate-400 dark:text-slate-500 font-medium border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
+                  No criteria defined for this type. Add a Section or Criteria to get started.
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
+      {/* Prompt Dialog for Types/Weighting */}
       {promptDialog.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 w-full max-w-md overflow-hidden">
@@ -329,6 +433,122 @@ export default function CriteriaManagement() {
           </div>
         </div>
       )}
+
+      {/* Section Dialog */}
+      {sectionDialog.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 w-full max-w-md overflow-hidden">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-700">
+              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{sectionDialog.editId ? 'Edit Section' : 'Add New Section'}</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Organize criteria into named groups</p>
+            </div>
+            <form onSubmit={handleSectionSubmit} className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">English Name *</label>
+                <input
+                  autoFocus
+                  type="text"
+                  required
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500 font-medium text-slate-800 dark:text-slate-100 outline-none transition-all"
+                  placeholder="e.g. Work Performance"
+                  value={sectionDialog.name}
+                  onChange={e => setSectionDialog({ ...sectionDialog, name: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">ឈ្មោះជាភាសាខ្មែរ / Khmer Name</label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500 font-medium text-slate-800 dark:text-slate-100 outline-none transition-all"
+                  placeholder="e.g. សមិទ្ធផលការងារ"
+                  value={sectionDialog.khName}
+                  onChange={e => setSectionDialog({ ...sectionDialog, khName: e.target.value })}
+                />
+              </div>
+              <div className="flex gap-4 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSectionDialog({ isOpen: false, name: '', khName: '' })}
+                  className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors"
+                >
+                  {sectionDialog.editId ? 'Save Changes' : 'Add Section'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CriterionCard({ criterion, idx, updateCriterion, deleteCriterion, moveCriterionSection, sections, selectedSectionId }: {
+  key?: string | number;
+  criterion: Criterion;
+  idx: number;
+  updateCriterion: (idx: number, field: keyof Criterion, val: string | number) => void;
+  deleteCriterion: (idx: number) => void;
+  moveCriterionSection: (idx: number, sectionId: string) => void;
+  sections: CriterionSection[];
+  selectedSectionId?: string;
+}) {
+  return (
+    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 relative group hover:border-indigo-200 dark:hover:border-indigo-500/50 hover:shadow-sm transition-all">
+      <button 
+        onClick={() => deleteCriterion(idx)} 
+        className="absolute top-4 right-4 p-2 text-slate-300 dark:text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+      >
+        <Trash2 size={18}/>
+      </button>
+
+      {sections.length > 0 && (
+        <div className="mb-4 flex items-center gap-2">
+          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Section:</label>
+          <select
+            className="px-3 py-1 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-medium text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500"
+            value={selectedSectionId || ''}
+            onChange={e => moveCriterionSection(idx, e.target.value)}
+          >
+            <option value="">Uncategorized</option>
+            {sections.map(s => (
+              <option key={s.id} value={s.id}>{s.khName ? `${s.khName} / ${s.name}` : s.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+        <div>
+          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">ចំណងជើងជាភាសាខ្មែរ<br/><span className="text-[10px] font-normal">Khmer Title</span></label>
+          <input className="w-full px-4 py-2 bg-transparent border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-900 dark:text-slate-100" value={criterion.kh} onChange={e => updateCriterion(idx, 'kh', e.target.value)} />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">ចំណងជើងជាភាសាអង់គ្លេស<br/><span className="text-[10px] font-normal">English Title</span></label>
+          <input className="w-full px-4 py-2 bg-transparent border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-900 dark:text-slate-100" value={criterion.en} onChange={e => updateCriterion(idx, 'en', e.target.value)} />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+        <div className="md:col-span-1">
+          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">ពិន្ទុអតិបរមា<br/><span className="text-[10px] font-normal">Max Score</span></label>
+          <input type="number" min="1" max="100" className="w-full px-4 py-2 bg-transparent border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-900 dark:text-slate-100" value={criterion.max || 10} onChange={e => updateCriterion(idx, 'max', parseInt(e.target.value) || 10)} />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">ការពិពណ៌នាជាភាសាខ្មែរ<br/><span className="text-[10px] font-normal">Khmer Description</span></label>
+          <textarea rows={2} className="w-full px-4 py-2 bg-transparent border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-sm text-slate-600 dark:text-slate-300 resize-none" value={criterion.khDesc} onChange={e => updateCriterion(idx, 'khDesc', e.target.value)} />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">ការពិពណ៌នាជាភាសាអង់គ្លេស<br/><span className="text-[10px] font-normal">English Description</span></label>
+          <textarea rows={2} className="w-full px-4 py-2 bg-transparent border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-sm text-slate-600 dark:text-slate-300 resize-none" value={criterion.desc} onChange={e => updateCriterion(idx, 'desc', e.target.value)} />
+        </div>
+      </div>
     </div>
   );
 }

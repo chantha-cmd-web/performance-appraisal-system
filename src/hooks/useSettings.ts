@@ -9,6 +9,13 @@ export interface Criterion {
   en: string;
   desc: string;
   max: number;
+  sectionId?: string;
+}
+
+export interface CriterionSection {
+  id: string;
+  name: string;
+  khName: string;
 }
 
 export interface SelfEvalProfile {
@@ -37,6 +44,7 @@ export interface EvaluationConfig {
   types: EvaluationType[];
   weightingSchemes: WeightingScheme[];
   criteriaSets: Record<string, Criterion[]>;
+  sections: Record<string, CriterionSection[]>;
 }
 
 export function useSettings() {
