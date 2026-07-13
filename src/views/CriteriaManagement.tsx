@@ -195,7 +195,7 @@ export default function CriteriaManagement() {
       return;
     }
     const newSets = { ...localConfig.criteriaSets };
-    const newCriterion: Criterion = { id: Date.now(), kh: 'លក្ខណៈថ្មី', khDesc: 'ការពិពណ៌នាថ្មី', en: 'New Criteria', desc: 'New Description', max: 10 };
+    const newCriterion: Criterion = { id: Date.now(), kh: '', khDesc: '', en: '', desc: '', max: 10 };
     if (sectionId) newCriterion.sectionId = sectionId;
     newSets[selectedType] = [
       ...(newSets[selectedType] || []),
