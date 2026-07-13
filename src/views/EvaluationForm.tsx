@@ -474,10 +474,12 @@ export default function EvaluationForm() {
               sectionCriteria.forEach(c => shownIds.add(c.id));
               allBlocks.push(
                 <div key={`heading-${section.id}`} className="mb-2 mt-6 first:mt-0">
-                  <h3 className="text-lg font-extrabold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">
+                  <h3 className="text-lg font-extrabold text-indigo-700 dark:text-indigo-300 tracking-wider">
                     {section.khName || section.name}
-                    {section.khName && <span className="text-indigo-500 dark:text-indigo-400 font-bold ml-2 normal-case">/ {section.name}</span>}
                   </h3>
+                  {section.khName && section.name && (
+                    <div className="text-sm font-bold text-indigo-500 dark:text-indigo-400">{section.name}</div>
+                  )}
                 </div>
               );
               allBlocks.push(renderTable(sectionCriteria, `table-${section.id}`));

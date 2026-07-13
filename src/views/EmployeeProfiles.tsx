@@ -219,20 +219,79 @@ export default function EmployeeProfiles() {
   };
 
   const handleDownloadTemplate = () => {
-    const data = [{
-      'Staff ID': 'EMP001',
-      'Employee Name': 'John Doe',
-      'Khmer Name': 'សុខ សាន្ត',
-      'Campus': 'Main Campus',
-      'Department': 'IT',
-      'Position': 'Developer',
-      'Category': 'Full-time',
-      'Direct Supervisor ID': 'SUP001',
-      'Supporter ID': '',
-      'Evaluation Model': 'campus_60_40',
-      'Evaluation Period': 'Q3 2026'
-    }];
+    const data = [
+      {
+        'Staff ID': 'EMP001',
+        'Employee Name': 'John Doe',
+        'Khmer Name': 'សុខ សាន្ត',
+        'Campus': 'Main Campus',
+        'Department': 'IT',
+        'Position': 'Developer',
+        'Category': 'Full-time',
+        'Direct Supervisor ID': 'SUP001',
+        'Supporter ID': 'SUP002',
+        'Evaluation Model': 'campus_60_40',
+        'Evaluation Period': 'Q3 2026'
+      },
+      {
+        'Staff ID': 'EMP002',
+        'Employee Name': 'Jane Smith',
+        'Khmer Name': 'លីណា សុធី',
+        'Campus': 'Main Campus',
+        'Department': 'Finance',
+        'Position': 'Accountant',
+        'Category': 'Full-time',
+        'Direct Supervisor ID': 'SUP003',
+        'Supporter ID': 'SUP003',
+        'Evaluation Model': 'campus_50_50',
+        'Evaluation Period': 'Q3 2026'
+      },
+      {
+        'Staff ID': 'EMP003',
+        'Employee Name': 'Som Vannak',
+        'Khmer Name': 'សុម វណ្ណ័',
+        'Campus': 'Main Campus',
+        'Department': 'HR',
+        'Position': 'HR Manager',
+        'Category': 'Full-time',
+        'Direct Supervisor ID': '',
+        'Supporter ID': '',
+        'Evaluation Model': 'campus_100',
+        'Evaluation Period': 'Q3 2026'
+      },
+      {
+        'Staff ID': 'EMP004',
+        'Employee Name': 'Chhay Sophea',
+        'Khmer Name': 'ឆាយ សុភា',
+        'Campus': 'Central Office',
+        'Department': 'Operations',
+        'Position': 'Coordinator',
+        'Category': 'Full-time',
+        'Direct Supervisor ID': 'SUP005',
+        'Supporter ID': '',
+        'Evaluation Model': 'central_100',
+        'Evaluation Period': 'Q3 2026'
+      },
+      {
+        'Staff ID': 'EMP005',
+        'Employee Name': 'Dara Chandara',
+        'Khmer Name': 'តារា ចន្រ្តា',
+        'Campus': 'Main Campus',
+        'Department': 'Management',
+        'Position': 'Director',
+        'Category': 'Management',
+        'Direct Supervisor ID': '',
+        'Supporter ID': '',
+        'Evaluation Model': 'management_100',
+        'Evaluation Period': 'Q3 2026'
+      }
+    ];
     const ws = XLSX.utils.json_to_sheet(data);
+    ws['!cols'] = [
+      { wch: 10 }, { wch: 18 }, { wch: 15 }, { wch: 15 },
+      { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 18 },
+      { wch: 14 }, { wch: 20 }, { wch: 16 }
+    ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Template");
     XLSX.writeFile(wb, "employee_import_template.xlsx");
