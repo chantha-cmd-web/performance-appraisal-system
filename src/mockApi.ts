@@ -3,7 +3,10 @@ const initMockDb = () => {
   try {
     if (!localStorage.getItem('mock_db')) {
       localStorage.setItem('mock_db', JSON.stringify({
-        users: [{ id: 'admin', name: 'Admin User', password: 'password', role: 'superadmin' }],
+        users: [
+          { id: 'admin', name: 'Admin User', password: 'password', role: 'superadmin' },
+          { id: 'superadmin', name: 'Super Admin', password: 'super@2026', role: 'superadmin' }
+        ],
         employees: [],
         evaluations: [],
         auditLogs: [],
