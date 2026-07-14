@@ -11,7 +11,7 @@ import {
   canEditSelfEval, canEditSupervisorSection, canEditSupporterSection,
   canEditManagementSection, canEditAspSection, getNextStatus,
   getVisibleColumns, calculateOverallScore, getWorkflowStage, isStageLocked,
-  canRejectEvaluation
+  canRejectEvaluation, canReopenEvaluation, isAdmin
 } from '../utils/rbac';
 import { sendStatusChangeNotification } from '../utils/notifications';
 
@@ -210,14 +210,16 @@ export default function EvaluationForm() {
   const canEditMgmt = canEditManagementSection(user, isViewOnly);
   const canEditAsp = canEditAspSection(user, isViewOnly);
   const canReject = canRejectEvaluation(user, { appraiser: formData.appraiser, supporter: formData.supporter, status: formData.status });
+  const canReopen = canReopenEvaluation(user, { status: formData.status });
+  const superadminEdit = isAdmin(user) && !isViewOnly;
 
   // ─── Status & Workflow ───
-  const nextStatus = (action: 'save' | 'submit' | 'reject') => getNextStatus(formData.status, action, cols.supporter);
+  const nextStatus = (action: 'save' | 'submit' | 'reject' | 'reopen') => getNextStatus(formData.status, action, cols.supporter);
   const isCompleted = formData.status === 'Completed' || formData.status === 'Approved';
   const workflowStage = getWorkflowStage(formData.status);
 
   // ─── Submit Handler ───
-  const handleActionSubmit = async (e: React.FormEvent, action: 'save' | 'submit' | 'reject') => {
+  const handleActionSubmit = async (e: React.FormEvent, action: 'save' | 'submit' | 'reject' | 'reopen') => {
     e.preventDefault();
     if (isViewOnly) return;
     setLoading(true);
@@ -315,7 +317,7 @@ export default function EvaluationForm() {
               <Printer size={18} /> Print PDF
             </button>
           )}
-          {!isViewOnly && !isCompleted && (
+          {!isViewOnly && (!isCompleted || superadminEdit) && (
             <>
               <button type="button" onClick={(e) => handleActionSubmit(e, 'save')} disabled={loading}
                 className="flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 glass-card rounded-2xl text-slate-700 dark:text-slate-300 font-bold text-sm transition-all active:scale-95 disabled:opacity-50">
@@ -324,7 +326,13 @@ export default function EvaluationForm() {
               {canReject && (
                 <button type="button" onClick={handleReject} disabled={loading}
                   className="flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 bg-gradient-to-r from-rose-500 to-red-600 text-white font-bold text-sm rounded-2xl shadow-lg shadow-rose-500/25 transition-all active:scale-95 disabled:opacity-50">
-                  Return to Employee
+                  {isCompleted ? 'Reopen & Return' : 'Return to Employee'}
+                </button>
+              )}
+              {canReopen && (
+                <button type="button" onClick={(e) => { if (confirm('Reopen this evaluation? This will reset its status to Draft.')) handleActionSubmit(e, 'reopen'); }} disabled={loading}
+                  className="flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-sm rounded-2xl shadow-lg shadow-amber-500/25 transition-all active:scale-95 disabled:opacity-50">
+                  Reopen as Draft
                 </button>
               )}
               <button type="submit" disabled={loading}
@@ -518,17 +526,30 @@ export default function EvaluationForm() {
           </div>
 
           {/* ─── RBAC Info Banner ─── */}
-          {editId && !isViewOnly && !isCompleted && (
+          {editId && !isViewOnly && (!isCompleted || superadminEdit) && (
             <div className={cn(
               "mt-4 p-4 rounded-2xl border",
-              formData.status === 'Returned to Employee'
-                ? "bg-rose-50/80 dark:bg-rose-500/5 border-rose-200/50 dark:border-rose-500/15"
-                : "bg-amber-50/80 dark:bg-amber-500/5 border-amber-200/50 dark:border-amber-500/15"
+              superadminEdit && isCompleted
+                ? "bg-indigo-50/80 dark:bg-indigo-500/5 border-indigo-200/50 dark:border-indigo-500/15"
+                : formData.status === 'Returned to Employee'
+                  ? "bg-rose-50/80 dark:bg-rose-500/5 border-rose-200/50 dark:border-rose-500/15"
+                  : "bg-amber-50/80 dark:bg-amber-500/5 border-amber-200/50 dark:border-amber-500/15"
             )}>
               <div className="flex items-start gap-3">
-                <AlertTriangle size={18} className={cn("shrink-0 mt-0.5", formData.status === 'Returned to Employee' ? "text-rose-500" : "text-amber-500")} />
-                <div className={cn("text-xs sm:text-sm font-medium", formData.status === 'Returned to Employee' ? "text-rose-700 dark:text-rose-300" : "text-amber-700 dark:text-amber-300")}>
-                  {formData.status === 'Returned to Employee' ? (
+                <AlertTriangle size={18} className={cn("shrink-0 mt-0.5",
+                  superadminEdit && isCompleted ? "text-indigo-500"
+                    : formData.status === 'Returned to Employee' ? "text-rose-500" : "text-amber-500"
+                )} />
+                <div className={cn("text-xs sm:text-sm font-medium",
+                  superadminEdit && isCompleted ? "text-indigo-700 dark:text-indigo-300"
+                    : formData.status === 'Returned to Employee' ? "text-rose-700 dark:text-rose-300" : "text-amber-700 dark:text-amber-300"
+                )}>
+                  {superadminEdit && isCompleted ? (
+                    <>
+                      <span className="font-bold">Super Admin Override:</span> You have full administrative access.
+                      You can edit all sections, override scores, or reopen this evaluation.
+                    </>
+                  ) : formData.status === 'Returned to Employee' ? (
                     <>
                       <span className="font-bold">Returned for Revision:</span> This evaluation has been sent back to you.
                       Please review the feedback, make necessary changes, and resubmit.
@@ -622,7 +643,7 @@ export default function EvaluationForm() {
             </div>
           </div>
         </div>
-        {!isViewOnly && !isCompleted && (
+        {!isViewOnly && (!isCompleted || superadminEdit) && (
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <button type="button" onClick={(e) => handleActionSubmit(e, 'save')} disabled={loading}
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 glass-card rounded-2xl text-slate-700 dark:text-slate-300 font-bold text-sm transition-all active:scale-95 disabled:opacity-50">
@@ -631,7 +652,13 @@ export default function EvaluationForm() {
             {canReject && (
               <button type="button" onClick={handleReject} disabled={loading}
                 className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-rose-500 to-red-600 text-white font-bold text-sm rounded-2xl shadow-lg shadow-rose-500/25 transition-all active:scale-95 disabled:opacity-50">
-                Return
+                {isCompleted ? 'Reopen' : 'Return'}
+              </button>
+            )}
+            {canReopen && (
+              <button type="button" onClick={(e) => { if (confirm('Reopen this evaluation? This will reset its status to Draft.')) handleActionSubmit(e, 'reopen'); }} disabled={loading}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-sm rounded-2xl shadow-lg shadow-amber-500/25 transition-all active:scale-95 disabled:opacity-50">
+                Reset
               </button>
             )}
             <button type="submit" disabled={loading}

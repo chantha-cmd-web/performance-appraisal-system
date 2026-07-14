@@ -185,11 +185,12 @@ export function calculateOverallScore(
 // Status transition: what status can this user advance to?
 export function getNextStatus(
   currentStatus: string,
-  action: 'save' | 'submit' | 'reject',
+  action: 'save' | 'submit' | 'reject' | 'reopen',
   showSupporter: boolean
 ): string {
   if (action === 'save') return currentStatus;
   if (action === 'reject') return 'Returned to Employee';
+  if (action === 'reopen') return 'Draft';
 
   switch (currentStatus) {
     case 'Draft':
@@ -205,14 +206,25 @@ export function getNextStatus(
   }
 }
 
+// Can this user reopen a completed/approved evaluation back to Draft?
+export function canReopenEvaluation(
+  user: User | null,
+  evalData: { status: string }
+): boolean {
+  if (!user) return false;
+  if (!isSuperAdmin(user)) return false;
+  return evalData.status === 'Completed' || evalData.status === 'Approved';
+}
+
 // Can this user reject/return an evaluation?
 export function canRejectEvaluation(
   user: User | null,
   evalData: { appraiser: string; supporter: string; status: string }
 ): boolean {
   if (!user) return false;
-  if (evalData.status === 'Completed' || evalData.status === 'Approved') return false;
+  // Superadmin can always reject/return regardless of status
   if (isSuperAdmin(user)) return true;
+  if (evalData.status === 'Completed' || evalData.status === 'Approved') return false;
   if (evalData.appraiser === user.id && evalData.status === 'Waiting for Supervisor') return true;
   if (evalData.supporter === user.id && evalData.status === 'Waiting for Supporter') return true;
   return false;
@@ -241,10 +253,12 @@ export function isStageLocked(
   user: User | null,
   evalData: { employeeId: string; appraiser: string; supporter: string }
 ): boolean {
-  // If completed/approved, everything is locked
-  if (status === 'Completed' || status === 'Approved') return true;
+  // If completed/approved, everything is locked — unless superadmin
+  if (status === 'Completed' || status === 'Approved') {
+    return !isSuperAdmin(user);
+  }
 
-  // Superadmin has full access to all stages (except completed/approved)
+  // Superadmin has full access to all stages
   if (isSuperAdmin(user)) return false;
 
   switch (stage) {
