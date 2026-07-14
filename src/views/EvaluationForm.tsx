@@ -288,7 +288,7 @@ export default function EvaluationForm() {
   });
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-6xl mx-auto space-y-6 sm:space-y-8 print:space-y-4 print:max-w-none">
+    <form noValidate onSubmit={handleSubmit} className="max-w-6xl mx-auto space-y-6 sm:space-y-8 print:space-y-4 print:max-w-none">
 
       {/* Print Header */}
       <div className="hidden print:flex flex-col items-center justify-center mb-8 border-b border-slate-200 pb-6">
@@ -725,7 +725,7 @@ function ScoreInput({ value, max, disabled, color, onChange }: {
   }
 
   return (
-    <input type="number" step="0.5" min="0" max={max} required
+    <input type="number" step="0.5" min="0" max={max}
       className={cn("w-full px-3 py-2 text-center rounded-xl border font-bold text-lg outline-none transition-all focus:ring-2", c.border, c.bg, c.text, c.focus, "print:border-none print:p-0")}
       value={value || ''}
       onChange={e => onChange(e.target.value)}

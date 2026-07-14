@@ -317,7 +317,7 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
         const idx = db.users.findIndex((u: any) => u.id === id);
         if (idx >= 0) {
            const updated = { ...db.users[idx], ...body, id: db.users[idx].id };
-           if (!body.password) delete updated.password;
+           if (!body.password || body.password.trim() === '') delete updated.password;
            db.users[idx] = updated;
            saveDb(db);
         }

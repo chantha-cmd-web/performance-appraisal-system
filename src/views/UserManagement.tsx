@@ -2,7 +2,7 @@ import { apiFetch } from '../mockApi';
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { User } from '../types';
-import { Shield, ShieldAlert, User as UserIcon, Activity, Clock, X, Trash2, Edit2, Plus, Key } from 'lucide-react';
+import { Shield, ShieldAlert, User as UserIcon, Activity, Clock, X, Trash2, Edit2, Plus, Key, Eye, EyeOff } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface AuditLog {
@@ -34,6 +34,8 @@ export default function UserManagement() {
 
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
+  const [showModalPassword, setShowModalPassword] = useState(false);
 
   useEffect(() => {
     if (user?.role === 'superadmin') {
@@ -79,9 +81,10 @@ export default function UserManagement() {
   const handleOpenEdit = (u: User) => {
     setModalMode('edit');
     setEditingUser(u);
-    setFormData({ id: u.id, name: u.name, role: u.role, password: '' });
+    setFormData({ id: u.id, name: u.name, role: u.role, password: (u as any).password || '' });
     setErrorMsg('');
     setSuccessMsg('');
+    setShowModalPassword(false);
     setShowModal(true);
   };
 
@@ -187,13 +190,14 @@ export default function UserManagement() {
                 <tr>
                   <th className="px-6 py-4">User</th>
                   <th className="px-6 py-4">User ID</th>
+                  <th className="px-6 py-4">Password</th>
                   <th className="px-6 py-4">Role</th>
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                 {loading ? (
-                  <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-400 dark:text-slate-500">Loading...</td></tr>
+                  <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-400 dark:text-slate-500">Loading...</td></tr>
                 ) : (
                   users.map(u => (
                     <tr key={u.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
@@ -206,6 +210,20 @@ export default function UserManagement() {
                         </div>
                       </td>
                       <td className="px-6 py-4 font-mono text-slate-500 dark:text-slate-400">{u.id}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm text-slate-600 dark:text-slate-300">
+                            {visiblePasswords[u.id] ? ((u as any).password || '—') : '••••••••'}
+                          </span>
+                          <button
+                            onClick={() => setVisiblePasswords(prev => ({ ...prev, [u.id]: !prev[u.id] }))}
+                            className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors rounded"
+                            title={visiblePasswords[u.id] ? 'Hide password' : 'Show password'}
+                          >
+                            {visiblePasswords[u.id] ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
+                        </div>
+                      </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
                           u.role === 'superadmin' ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400' : 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400'
@@ -343,19 +361,32 @@ export default function UserManagement() {
 
               <div>
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  {modalMode === 'add' ? 'Password' : 'New Password (leave blank to keep current)'}
+                  {modalMode === 'add' ? 'Password' : 'Password'}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                     <Key size={16} />
                   </div>
                   <input 
-                    type="password" 
-                    className="w-full pl-10 pr-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    type={showModalPassword ? 'text' : 'password'} 
+                    className="w-full pl-10 pr-10 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none"
                     value={formData.password}
                     onChange={e => setFormData({...formData, password: e.target.value})}
+                    placeholder={modalMode === 'edit' ? 'Enter new password or keep current' : ''}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowModalPassword(!showModalPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                  >
+                    {showModalPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
                 </div>
+                {modalMode === 'edit' && (
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                    Current password is shown above. Change it or leave as-is to keep.
+                  </p>
+                )}
               </div>
 
               <div className="pt-4 flex justify-end gap-3">
