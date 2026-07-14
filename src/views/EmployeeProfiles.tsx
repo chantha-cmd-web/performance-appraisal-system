@@ -1,7 +1,7 @@
 import { apiFetch } from '../mockApi';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Search, Plus, Upload, Download, Trash2, Edit2, CheckCircle2, AlertCircle, ShieldAlert, X } from 'lucide-react';
+import { Search, Plus, Upload, Download, Trash2, Edit2, CheckCircle2, AlertCircle, ShieldAlert, X, AlertTriangle, Info } from 'lucide-react';
 import { Employee } from '../types';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
@@ -12,6 +12,16 @@ export default function EmployeeProfiles() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [updateExisting, setUpdateExisting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    totalRows: number;
+    imported: number;
+    updated: number;
+    skippedDuplicate: number;
+    failed: number;
+    errors: { row: number; staffId: string; reason: string }[];
+  } | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [editingEmp, setEditingEmp] = useState<Employee | null>(null);
@@ -136,65 +146,148 @@ export default function EmployeeProfiles() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      try {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws);
-        
-        let successCount = 0;
-        let errorCount = 0;
+    setImporting(true);
+    setImportResult(null);
 
-        // Process sequentially to not overwhelm server, could be batched in real app
-        for (const row of data as any[]) {
-          const emp = {
-            id: String(row['Staff ID'] || row['id'] || ''),
-            name: String(row['Employee Name'] || row['name'] || ''),
-            khmerName: String(row['Khmer Name'] || row['khmerName'] || ''),
-            campus: String(row['Campus'] || row['campus'] || ''),
-            department: String(row['Department'] || row['department'] || ''),
-            position: String(row['Position'] || row['position'] || ''),
-            category: String(row['Category'] || row['category'] || ''),
-            supervisorId: String(row['Direct Supervisor ID'] || row['supervisorId'] || ''),
-            supporterId: String(row['Supporter ID'] || row['supporterId'] || ''),
-            evalModel: String(row['Evaluation Model'] || row['evalModel'] || ''),
-            evalPeriod: String(row['Evaluation Period'] || row['evalPeriod'] || ''),
-          };
+    try {
+      // 1) Fetch current employees to detect duplicates
+      const existingRes = await apiFetch('/api/employees', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const existingEmployees: Employee[] = existingRes.ok ? await existingRes.json() : [];
+      const existingIds = new Set(existingEmployees.map(emp => emp.id));
 
-          if (!emp.id || !emp.name) {
-            errorCount++;
-            continue;
-          }
+      // 2) Parse Excel file
+      const bstr = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (evt) => resolve(evt.target?.result as string);
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsBinaryString(file);
+      });
 
+      const wb = XLSX.read(bstr, { type: 'binary' });
+      const wsname = wb.SheetNames[0];
+      const ws = wb.Sheets[wsname];
+      const data = XLSX.utils.sheet_to_json(ws);
+
+      let imported = 0;
+      let updated = 0;
+      let skippedDuplicate = 0;
+      let failed = 0;
+      const errors: { row: number; staffId: string; reason: string }[] = [];
+
+      // 3) Process each row sequentially
+      for (let i = 0; i < data.length; i++) {
+        const row = data[i] as any;
+        const rowNum = i + 2; // Excel row (1-indexed header + 1-indexed data)
+        const rawId = String(row['Staff ID'] || row['id'] || '').trim();
+        const rawName = String(row['Employee Name'] || row['name'] || '').trim();
+
+        // Validation: Staff ID required
+        if (!rawId) {
+          errors.push({ row: rowNum, staffId: '(empty)', reason: 'Staff ID is missing' });
+          failed++;
+          continue;
+        }
+
+        // Validation: Name required
+        if (!rawName) {
+          errors.push({ row: rowNum, staffId: rawId, reason: 'Employee Name is missing' });
+          failed++;
+          continue;
+        }
+
+        // Validation: Campus required
+        const rawCampus = String(row['Campus'] || row['campus'] || '').trim();
+        if (!rawCampus) {
+          errors.push({ row: rowNum, staffId: rawId, reason: 'Campus is missing' });
+          failed++;
+          continue;
+        }
+
+        // Validation: Position required
+        const rawPosition = String(row['Position'] || row['position'] || '').trim();
+        if (!rawPosition) {
+          errors.push({ row: rowNum, staffId: rawId, reason: 'Position is missing' });
+          failed++;
+          continue;
+        }
+
+        const emp = {
+          id: rawId,
+          name: rawName,
+          khmerName: String(row['Khmer Name'] || row['khmerName'] || '').trim(),
+          campus: rawCampus,
+          department: String(row['Department'] || row['department'] || '').trim(),
+          position: rawPosition,
+          category: String(row['Category'] || row['category'] || '').trim(),
+          supervisorId: String(row['Direct Supervisor ID'] || row['supervisorId'] || '').trim(),
+          supporterId: String(row['Supporter ID'] || row['supporterId'] || '').trim(),
+          evalModel: String(row['Evaluation Model'] || row['evalModel'] || '').trim(),
+          evalPeriod: String(row['Evaluation Period'] || row['evalPeriod'] || '').trim(),
+        };
+
+        const isDuplicate = existingIds.has(emp.id);
+
+        if (isDuplicate && !updateExisting) {
+          skippedDuplicate++;
+          errors.push({ row: rowNum, staffId: emp.id, reason: 'Duplicate Staff ID — skipped (existing record preserved)' });
+          continue;
+        }
+
+        if (isDuplicate && updateExisting) {
+          // Preserve fields not in the import file
+          const existing = existingEmployees.find(e => e.id === emp.id);
+          const merged = { ...existing, ...emp };
           try {
             const res = await apiFetch('/api/employees', {
               method: 'POST',
-              headers: { 
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}` 
-              },
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify(merged)
+            });
+            if (res.ok) updated++;
+            else failed++;
+          } catch {
+            failed++;
+            errors.push({ row: rowNum, staffId: emp.id, reason: 'Network error while updating' });
+          }
+        } else {
+          try {
+            const res = await apiFetch('/api/employees', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
               body: JSON.stringify(emp)
             });
-            if (res.ok) successCount++;
-            else errorCount++;
-          } catch (err) {
-            errorCount++;
+            if (res.ok) {
+              imported++;
+              existingIds.add(emp.id); // Prevent intra-file duplicates from double-adding
+            } else {
+              failed++;
+              errors.push({ row: rowNum, staffId: emp.id, reason: 'Server rejected the record' });
+            }
+          } catch {
+            failed++;
+            errors.push({ row: rowNum, staffId: emp.id, reason: 'Network error while importing' });
           }
         }
-        
-        toast.success(`Import complete! ${successCount} imported, ${errorCount} failed.`);
-        setIsImportModalOpen(false);
-        fetchEmployees();
-        
-      } catch (err) {
-        toast.error('Failed to process file');
       }
-    };
-    reader.readAsBinaryString(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+
+      setImportResult({
+        totalRows: data.length,
+        imported,
+        updated,
+        skippedDuplicate,
+        failed,
+        errors,
+      });
+
+      fetchEmployees();
+    } catch (err) {
+      toast.error('Failed to process file');
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleExport = () => {
@@ -477,31 +570,140 @@ export default function EmployeeProfiles() {
       {isImportModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="p-6 border-b border-slate-100 dark:border-slate-700">
-              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Bulk Import Employees</h2>
-              <p className="text-sm text-slate-500 mt-1">Upload an Excel or CSV file to import employees.</p>
-            </div>
-            <div className="p-6 space-y-6">
-              <button onClick={handleDownloadTemplate} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-400 font-bold hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors">
-                <Download size={18} /> Download Template
-              </button>
-              
-              <div className="relative">
-                <input 
-                  type="file" 
-                  accept=".xlsx, .xls, .csv" 
-                  ref={fileInputRef}
-                  onChange={handleFileUpload}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
-                />
-                <div className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-colors">
-                  <Upload size={18} /> Select File to Import
+            {!importResult ? (
+              <>
+                <div className="p-6 border-b border-slate-100 dark:border-slate-700">
+                  <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Bulk Import Employees</h2>
+                  <p className="text-sm text-slate-500 mt-1">Upload an Excel or CSV file to import employees.</p>
                 </div>
-              </div>
-            </div>
-            <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-700 flex justify-end">
-              <button onClick={() => setIsImportModalOpen(false)} className="px-4 py-2 rounded-lg font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700">Close</button>
-            </div>
+                <div className="p-6 space-y-5">
+                  <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20">
+                    <div className="flex items-start gap-2">
+                      <Info size={16} className="text-blue-500 shrink-0 mt-0.5" />
+                      <p className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                        Existing records will be preserved. New records are appended. Duplicates are handled based on the option below.
+                      </p>
+                    </div>
+                  </div>
+
+                  <label className="flex items-start gap-3 p-4 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={updateExisting}
+                      onChange={(e) => setUpdateExisting(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <div>
+                      <span className="text-sm font-bold text-slate-800 dark:text-slate-100">Update Existing Records</span>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        When checked, existing employees with matching Staff IDs will be updated. When unchecked, duplicates are skipped.
+                      </p>
+                    </div>
+                  </label>
+
+                  <button onClick={handleDownloadTemplate} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-400 font-bold hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors">
+                    <Download size={18} /> Download Template
+                  </button>
+                  
+                  <div className="relative">
+                    <input 
+                      type="file" 
+                      accept=".xlsx, .xls, .csv" 
+                      ref={fileInputRef}
+                      onChange={handleFileUpload}
+                      disabled={importing}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" 
+                    />
+                    <div className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-colors ${importing ? 'bg-indigo-400 text-white/80' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
+                      {importing ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Importing...
+                        </>
+                      ) : (
+                        <>
+                          <Upload size={18} /> Select File to Import
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-700 flex justify-end">
+                  <button onClick={() => { setIsImportModalOpen(false); setUpdateExisting(false); }} className="px-4 py-2 rounded-lg font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700">Close</button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* ─── Import Summary ─── */}
+                <div className="p-6 border-b border-slate-100 dark:border-slate-700">
+                  <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Import Summary</h2>
+                  <p className="text-sm text-slate-500 mt-1">Results of the import operation</p>
+                </div>
+                <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-600 text-center">
+                      <div className="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{importResult.totalRows}</div>
+                      <div className="text-xs font-medium text-slate-500">Total Rows</div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-center">
+                      <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">{importResult.imported}</div>
+                      <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400">New Imported</div>
+                    </div>
+                    {updateExisting && (
+                      <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-center">
+                        <div className="text-2xl font-extrabold text-blue-600 dark:text-blue-400">{importResult.updated}</div>
+                        <div className="text-xs font-medium text-blue-600 dark:text-blue-400">Updated</div>
+                      </div>
+                    )}
+                    {importResult.skippedDuplicate > 0 && (
+                      <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-center">
+                        <div className="text-2xl font-extrabold text-amber-600 dark:text-amber-400">{importResult.skippedDuplicate}</div>
+                        <div className="text-xs font-medium text-amber-600 dark:text-amber-400">Skipped Duplicates</div>
+                      </div>
+                    )}
+                    {importResult.failed > 0 && (
+                      <div className="p-3 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-center">
+                        <div className="text-2xl font-extrabold text-red-600 dark:text-red-400">{importResult.failed}</div>
+                        <div className="text-xs font-medium text-red-600 dark:text-red-400">Failed</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Errors List */}
+                  {importResult.errors.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                        <AlertTriangle size={14} className="text-amber-500" /> Warnings & Errors
+                      </h4>
+                      <div className="max-h-40 overflow-y-auto space-y-1.5">
+                        {importResult.errors.map((err, i) => (
+                          <div key={i} className="text-xs p-2.5 rounded-lg bg-amber-50 dark:bg-amber-500/10 border border-amber-200/50 dark:border-amber-500/15">
+                            <span className="font-bold text-amber-700 dark:text-amber-400">Row {err.row}</span>
+                            <span className="text-slate-500 dark:text-slate-400 mx-1">•</span>
+                            <span className="font-semibold text-slate-600 dark:text-slate-300">{err.staffId}</span>
+                            <span className="text-slate-500 dark:text-slate-400 mx-1">—</span>
+                            <span className="text-slate-600 dark:text-slate-400">{err.reason}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {importResult.imported === 0 && importResult.updated === 0 && importResult.failed === 0 && importResult.skippedDuplicate > 0 && (
+                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20">
+                      <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                        All {importResult.skippedDuplicate} record(s) were skipped because their Staff IDs already exist. Enable "Update Existing Records" to overwrite them.
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-700 flex justify-end gap-3">
+                  <button onClick={() => { setImportResult(null); setUpdateExisting(false); setIsImportModalOpen(false); }} className="px-4 py-2 rounded-lg font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700">Close</button>
+                  <button onClick={() => setImportResult(null)} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-colors">Import Another File</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
