@@ -133,10 +133,18 @@ export default function EvaluationForm() {
   }, [positionFormConfig, matchedProfile, config, formData.evaluationType]);
 
   useEffect(() => {
-    if (!editId && !initialLoad && currentCriteria.length > 0 && criteriaScores.length === 0) {
+    if (currentCriteria.length > 0 && criteriaScores.length === 0) {
       setCriteriaScores(currentCriteria.map(c => ({
         criteriaId: c.id, selfScore: 0, superScore: 0, supporterScore: 0, managementScore: 0, aspScore: 0
       })));
+    } else if (editId && currentCriteria.length > 0 && criteriaScores.length > 0 && currentCriteria.length !== criteriaScores.length) {
+      const scoreMap = new Map(criteriaScores.map(s => [s.criteriaId, s]));
+      setCriteriaScores(currentCriteria.map(c => {
+        const existing = scoreMap.get(c.id);
+        return existing || {
+          criteriaId: c.id, selfScore: 0, superScore: 0, supporterScore: 0, managementScore: 0, aspScore: 0
+        };
+      }));
     }
   }, [formData.evaluationType, currentCriteria, editId, initialLoad]);
 
@@ -260,12 +268,12 @@ export default function EvaluationForm() {
     }
   };
 
-  if (configLoading || profilesLoading || posConfigsLoading) {
+  if (configLoading || profilesLoading || posConfigsLoading || initialLoad) {
     return (
       <div className="flex items-center justify-center p-16">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm font-medium text-slate-400">Loading form configuration...</span>
+          <span className="text-sm font-medium text-slate-400">{initialLoad ? 'Loading evaluation data...' : 'Loading form configuration...'}</span>
         </div>
       </div>
     );
@@ -727,7 +735,7 @@ function ScoreInput({ value, max, disabled, color, onChange }: {
   return (
     <input type="number" step="0.5" min="0" max={max}
       className={cn("w-full px-3 py-2 text-center rounded-xl border font-bold text-lg outline-none transition-all focus:ring-2", c.border, c.bg, c.text, c.focus, "print:border-none print:p-0")}
-      value={value || ''}
+      value={value}
       onChange={e => onChange(e.target.value)}
     />
   );
