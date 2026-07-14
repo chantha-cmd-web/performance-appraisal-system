@@ -1,4 +1,4 @@
-const DB_VERSION = '7';
+const DB_VERSION = '8';
 
 const defaultEvaluationConfig = JSON.stringify({
   types: [
@@ -74,17 +74,77 @@ const defaultEvaluationConfig = JSON.stringify({
 const defaultDb = {
   users: [
     { id: 'superadmin', name: 'Super Administrator', password: 'super@2026', role: 'superadmin' },
-    { id: 'admin', name: 'Administrator', password: 'admin@123', role: 'admin' }
+    { id: 'admin', name: 'Administrator', password: 'admin@123', role: 'admin' },
+    { id: '201760', name: 'Chan Dara (Employee)', password: 'emp@2026', role: 'employee' },
+    { id: 'sup001', name: 'Som Bopha (Supervisor)', password: 'sup@2026', role: 'supervisor' },
+    { id: 'sup002', name: 'Keo Chantrea (Supporter)', password: 'sup@2026', role: 'supporter' }
   ],
-  employees: [],
-  evaluations: [],
+  employees: [
+    {
+      id: '201760', name: 'Chan Dara', khmerName: 'ចន្រ្ត ដារ៉ា', campus: 'Main Campus',
+      department: 'Operations', position: 'Accountant', category: 'Full-time',
+      supervisorId: 'sup001', supporterId: 'sup002',
+      evalModel: 'campus_60_40', evalPeriod: '2026'
+    },
+    {
+      id: 'sup001', name: 'Som Bopha', khmerName: 'សុម បុប្ផា', campus: 'Main Campus',
+      department: 'Management', position: 'Supervisor', category: 'Management',
+      supervisorId: '', supporterId: '',
+      evalModel: 'campus_60_40', evalPeriod: '2026'
+    },
+    {
+      id: 'sup002', name: 'Keo Chantrea', khmerName: 'គាវ ចន្រ្តី', campus: 'Central Office',
+      department: 'HR', position: 'HR Officer', category: 'Full-time',
+      supervisorId: '', supporterId: '',
+      evalModel: 'campus_60_40', evalPeriod: '2026'
+    }
+  ],
   auditLogs: [],
   notifications: [],
   settings: {
     evaluation_config: defaultEvaluationConfig,
     self_eval_profiles: '[]',
     hr_profiles: '[]',
-    position_form_configs: '[]'
+    position_form_configs: JSON.stringify([{
+      id: 'cfg-accountant', position: 'Accountant', weightingScheme: 'campus_60_40',
+      sections: [
+        { id: 'sec-1', name: 'Professional Competencies', khName: 'សមត្ថភាពវិជ្ជាជីវៈ', weight: 50, displayOrder: 0, status: 'active' },
+        { id: 'sec-2', name: 'Core Values & Behavior', khName: 'តម្លៃ និងឥរិយាបទ', weight: 50, displayOrder: 1, status: 'active' }
+      ],
+      criteria: [
+        { id: 1, sectionId: 'sec-1', kh: 'គណនេយ្យភាពហិរញ្ញវត្ថុ', en: 'Financial Accountability', khDesc: 'ការគ្រប់គ្រងហិរញ្ញវត្ថុ', desc: 'Accuracy in financial reporting', max: 10, displayOrder: 0, status: 'active' },
+        { id: 2, sectionId: 'sec-1', kh: 'ជំនាញទន្ទឹនិយោបល់', en: 'Analytical Skills', khDesc: 'សមត្ថភាពវិភាគ', desc: 'Data analysis capability', max: 10, displayOrder: 1, status: 'active' },
+        { id: 3, sectionId: 'sec-1', kh: 'ការប្រើប្រាស់ប្រព័ន្ធគណនេយ្យ', en: 'Accounting Software Proficiency', khDesc: 'ជំនាញប្រព័ន្ធ', desc: 'Proficiency in accounting tools', max: 10, displayOrder: 2, status: 'active' },
+        { id: 4, sectionId: 'sec-2', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍', desc: 'Enthusiasm and dedication', max: 10, displayOrder: 3, status: 'active' },
+        { id: 5, sectionId: 'sec-2', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនង', desc: 'Interactions with colleagues', max: 10, displayOrder: 4, status: 'active' },
+        { id: 6, sectionId: 'sec-2', kh: 'ការសហការក្រុម', en: 'Teamwork', khDesc: 'ការធ្វើការជាក្រុម', desc: 'Working well with others', max: 10, displayOrder: 5, status: 'active' }
+      ]
+    }, {
+      id: 'cfg-supervisor', position: 'Supervisor', weightingScheme: 'campus_60_40',
+      sections: [
+        { id: 'sec-1', name: 'Leadership & Management', khName: 'ភាពជាអ្នកដឹកនាំ', weight: 60, displayOrder: 0, status: 'active' },
+        { id: 'sec-2', name: 'Professional Skills', khName: 'ជំនាញវិជ្ជាជីវៈ', weight: 40, displayOrder: 1, status: 'active' }
+      ],
+      criteria: [
+        { id: 10, sectionId: 'sec-1', kh: 'ភាពជាអ្នកដឹកនាំ', en: 'Leadership', khDesc: 'ការដឹកនាំក្រុម', desc: 'Leadership qualities', max: 10, displayOrder: 0, status: 'active' },
+        { id: 11, sectionId: 'sec-1', kh: 'ការគ្រប់គ្រងក្រុម', en: 'Team Management', khDesc: 'ការគ្រប់គ្រងបុគ្គលិក', desc: 'Managing team performance', max: 10, displayOrder: 1, status: 'active' },
+        { id: 12, sectionId: 'sec-1', kh: 'ការសម្រេចចិត្ត', en: 'Decision Making', khDesc: 'ការសម្រេចចិត្ត', desc: 'Making sound decisions', max: 10, displayOrder: 2, status: 'active' },
+        { id: 13, sectionId: 'sec-2', kh: 'ចំណេះដឹងការងារ', en: 'Job Knowledge', khDesc: 'ការយល់ដឹង', desc: 'Understanding of work', max: 10, displayOrder: 3, status: 'active' },
+        { id: 14, sectionId: 'sec-2', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនង', desc: 'Communication skills', max: 10, displayOrder: 4, status: 'active' }
+      ]
+    }, {
+      id: 'cfg-hr', position: 'HR Officer', weightingScheme: 'campus_60_40',
+      sections: [
+        { id: 'sec-1', name: 'HR Competencies', khName: 'សមត្ថភាពធនធានមនុស្ស', weight: 60, displayOrder: 0, status: 'active' },
+        { id: 'sec-2', name: 'Core Values', khName: 'តម្លៃ និងឥរិយាបទ', weight: 40, displayOrder: 1, status: 'active' }
+      ],
+      criteria: [
+        { id: 20, sectionId: 'sec-1', kh: 'ការគ្រប់គ្រងធនធានមនុស្ស', en: 'HR Management', khDesc: 'ការគ្រប់គ្រងបុគ្គលិក', desc: 'HR process management', max: 10, displayOrder: 0, status: 'active' },
+        { id: 21, sectionId: 'sec-1', kh: 'ការជ្រើសរើសបុគ្គលិក', en: 'Recruitment', khDesc: 'ការជ្រើសរើស', desc: 'Hiring process effectiveness', max: 10, displayOrder: 1, status: 'active' },
+        { id: 22, sectionId: 'sec-2', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍', desc: 'Professional attitude', max: 10, displayOrder: 2, status: 'active' },
+        { id: 23, sectionId: 'sec-2', kh: 'ការសហការ', en: 'Collaboration', khDesc: 'ការធ្វើការជាមួយអ្នកដទៃ', desc: 'Working with others', max: 10, displayOrder: 3, status: 'active' }
+      ]
+    }])
   }
 };
 
@@ -191,6 +251,9 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
         const idx = db.employees.findIndex((e: any) => e.id === body?.id);
         if (idx >= 0) db.employees[idx] = body;
         else db.employees.push(body);
+        if (body?.id && body?.name && !db.users.find((u: any) => u.id === body.id)) {
+          db.users.push({ id: body.id, name: body.name, password: 'emp@2026', role: 'employee' });
+        }
         saveDb(db);
         return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
