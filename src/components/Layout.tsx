@@ -93,8 +93,6 @@ export default function Layout() {
 
               <SidebarLink to="/position-forms" icon={<ClipboardCheck size={20} />} label="Position Forms" isOpen={isOpen} />
 
-              <SidebarLink to="/self-eval-settings" icon={<FileEdit size={20} />} label="Self Evaluation" isOpen={isOpen} />
-
               <SidebarLink to="/data-management" icon={
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5V19A9 3 0 0 0 21 19V5"></path><path d="M3 12A9 3 0 0 0 21 12"></path></svg>
               } label="Data Management" isOpen={isOpen} />

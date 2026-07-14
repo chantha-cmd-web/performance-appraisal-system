@@ -11,7 +11,6 @@ import UserManagement from './views/UserManagement';
 import EmployeeProfiles from './views/EmployeeProfiles';
 import HRSettings from './views/HRSettings';
 import CriteriaManagement from './views/CriteriaManagement';
-import SelfEvalCriteriaManagement from './views/SelfEvalCriteriaManagement';
 import SelfEvaluation from './views/SelfEvaluation';
 import PositionFormManagement from './views/PositionFormManagement';
 import AuditLogs from './views/AuditLogs';
@@ -48,7 +47,6 @@ export default function App() {
               <Route path="employees" element={<AdminRoute><EmployeeProfiles /></AdminRoute>} />
               <Route path="hr-settings" element={<AdminRoute><HRSettings /></AdminRoute>} />
               <Route path="settings" element={<AdminRoute><CriteriaManagement /></AdminRoute>} />
-              <Route path="self-eval-settings" element={<AdminRoute><SelfEvalCriteriaManagement /></AdminRoute>} />
               <Route path="position-forms" element={<AdminRoute><PositionFormManagement /></AdminRoute>} />
               <Route path="audit-logs" element={<AdminRoute><AuditLogs /></AdminRoute>} />
               <Route path="data-management" element={<AdminRoute><DataManagement /></AdminRoute>} />
