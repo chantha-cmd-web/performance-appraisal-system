@@ -2,12 +2,16 @@ import { apiFetch } from '../mockApi';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { CriteriaScore, PeerFeedback, STATUS_LABELS } from '../types';
-import { Save, Plus, Trash2, Printer, Eye, Edit2 } from 'lucide-react';
+import { Save, Plus, Trash2, Printer, Lock, Unlock, CheckCircle2, Circle, AlertTriangle } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSettings, useSelfEvalSettings } from '../hooks/useSettings';
 import { format } from 'date-fns';
 import { cn } from '../lib/utils';
-import { canEditSelfEval, canEditSupervisorSection, canEditSupporterSection, canEditManagementSection, getNextStatus } from '../utils/rbac';
+import {
+  canEditSelfEval, canEditSupervisorSection, canEditSupporterSection,
+  canEditManagementSection, canEditAspSection, getNextStatus,
+  getVisibleColumns, calculateOverallScore, getWorkflowStage, isStageLocked
+} from '../utils/rbac';
 
 export default function EvaluationForm() {
   const { token, user } = useAuth();
@@ -43,11 +47,7 @@ export default function EvaluationForm() {
   const [criteriaScores, setCriteriaScores] = useState<CriteriaScore[]>([]);
   const [peerFeedbacks, setPeerFeedbacks] = useState<PeerFeedback[]>([]);
 
-  useEffect(() => {
-    if (editId) {
-      fetchEvaluation();
-    }
-  }, [editId]);
+  useEffect(() => { if (editId) fetchEvaluation(); }, [editId]);
 
   const fetchEvaluation = async () => {
     try {
@@ -57,42 +57,24 @@ export default function EvaluationForm() {
       if (res.ok) {
         const data = await res.json();
         setFormData({
-          id: data.id,
-          employeeId: data.employeeId,
-          employeeName: data.employeeName,
-          campus: data.campus,
-          department: data.department || '',
-          position: data.position,
-          category: data.category || '',
-          appraiser: data.appraiser,
-          supporter: data.supporter || '',
-          evalPeriod: data.evalPeriod || '',
-          reviewDate: data.reviewDate,
-          weightScheme: data.weightScheme,
-          evaluationType: data.evaluationType || 'management',
-          status: data.status || 'Draft',
-          createdAt: data.createdAt,
-          createdByName: data.createdByName,
-          evaluatorComments: data.evaluatorComments || ''
+          id: data.id, employeeId: data.employeeId, employeeName: data.employeeName,
+          campus: data.campus, department: data.department || '', position: data.position,
+          category: data.category || '', appraiser: data.appraiser, supporter: data.supporter || '',
+          evalPeriod: data.evalPeriod || '', reviewDate: data.reviewDate, weightScheme: data.weightScheme,
+          evaluationType: data.evaluationType || 'management', status: data.status || 'Draft',
+          createdAt: data.createdAt, createdByName: data.createdByName, evaluatorComments: data.evaluatorComments || ''
         });
         setCriteriaScores((data.criteriaScores || data.scores || []).map((s: any) => ({
-          criteriaId: s.criteriaId,
-          selfScore: s.selfScore ?? 0,
-          superScore: s.superScore ?? 0,
-          supporterScore: s.supporterScore ?? 0,
-          managementScore: s.managementScore ?? 0,
-          aspScore: s.aspScore ?? 0,
+          criteriaId: s.criteriaId, selfScore: s.selfScore ?? 0, superScore: s.superScore ?? 0,
+          supporterScore: s.supporterScore ?? 0, managementScore: s.managementScore ?? 0, aspScore: s.aspScore ?? 0,
         })));
         setPeerFeedbacks(data.peerFeedbacks || []);
       } else {
         alert('Evaluation not found');
         navigate('/dashboard');
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setInitialLoad(false);
-    }
+    } catch (err) { console.error(err); }
+    finally { setInitialLoad(false); }
   };
 
   useEffect(() => {
@@ -105,7 +87,6 @@ export default function EvaluationForm() {
     }
   }, [config, editId]);
 
-  // Find matching profile
   const matchedProfile = useMemo(() => {
     if (!profiles) return null;
     return profiles.find(p => {
@@ -124,16 +105,11 @@ export default function EvaluationForm() {
       ? matchedProfile.criteria
       : config?.criteriaSets[formData.evaluationType] || [];
   }, [matchedProfile, config, formData.evaluationType]);
-  
+
   useEffect(() => {
     if (!editId && !initialLoad && currentCriteria.length > 0 && criteriaScores.length === 0) {
-      setCriteriaScores(currentCriteria.map(c => ({ 
-        criteriaId: c.id, 
-        selfScore: 0, 
-        superScore: 0,
-        supporterScore: 0,
-        managementScore: 0,
-        aspScore: 0
+      setCriteriaScores(currentCriteria.map(c => ({
+        criteriaId: c.id, selfScore: 0, superScore: 0, supporterScore: 0, managementScore: 0, aspScore: 0
       })));
     }
   }, [formData.evaluationType, currentCriteria, editId, initialLoad]);
@@ -155,47 +131,29 @@ export default function EvaluationForm() {
   };
   const removePeerFeedback = (idx: number) => setPeerFeedbacks(peerFeedbacks.filter((_, i) => i !== idx));
 
-  // Determine which columns to show based on weighting scheme
-  const showSelf = true; // Always show self score
-  const showSuper = ['campus_60_40', 'campus_50_50', 'campus_100', 'central_100'].includes(formData.weightScheme);
-  const showSupporter = ['campus_60_40', 'campus_50_50'].includes(formData.weightScheme);
-  const showManagement = formData.weightScheme === 'management_100';
-  const showAsp = formData.weightScheme === 'asp_100';
+  // ─── Column Visibility ───
+  const cols = getVisibleColumns(formData.weightScheme);
 
-  // Calculate scores
+  // ─── Score Totals ───
   const totalSelf = criteriaScores.reduce((sum, c) => sum + (c.selfScore || 0), 0);
   const totalSuper = criteriaScores.reduce((sum, c) => sum + (c.superScore || 0), 0);
   const totalSupporter = criteriaScores.reduce((sum, c) => sum + (c.supporterScore || 0), 0);
   const totalManagement = criteriaScores.reduce((sum, c) => sum + (c.managementScore || 0), 0);
   const totalAsp = criteriaScores.reduce((sum, c) => sum + (c.aspScore || 0), 0);
   const maxPossibleScore = currentCriteria.reduce((sum, c) => sum + (c.max || 10), 0);
-  
-  let overallScore = 0;
-  if (formData.weightScheme === 'campus_60_40') {
-    overallScore = (totalSuper * 0.6) + (totalSupporter * 0.4);
-  } else if (formData.weightScheme === 'campus_50_50') {
-    overallScore = (totalSuper * 0.5) + (totalSupporter * 0.5);
-  } else if (formData.weightScheme === 'management_100') {
-    overallScore = totalManagement;
-  } else if (formData.weightScheme === 'asp_100') {
-    overallScore = totalAsp;
-  } else {
-    // campus_100 or central_100
-    overallScore = totalSuper;
-  }
 
-  // Normalize to 100 based on criteria max scores
-  if (maxPossibleScore > 0) {
-    overallScore = (overallScore / maxPossibleScore) * 100;
-  }
+  // ─── Peer Feedback Bonus ───
+  const peerAvgBonus = peerFeedbacks.length > 0
+    ? (peerFeedbacks.reduce((sum, p) => sum + p.score, 0) / peerFeedbacks.length) * 0.5
+    : 0;
 
-  // Peer feedback adjustment (max +5 bonus)
-  if (peerFeedbacks.length > 0) {
-    const avgPeer = peerFeedbacks.reduce((sum, p) => sum + p.score, 0) / peerFeedbacks.length;
-    overallScore += (avgPeer * 0.5);
-  }
-
-  overallScore = Math.min(100, Math.max(0, overallScore));
+  // ─── Overall Score Calculation ───
+  const overallScore = calculateOverallScore(
+    formData.weightScheme,
+    { self: totalSelf, super: totalSuper, supporter: totalSupporter, management: totalManagement, asp: totalAsp },
+    maxPossibleScore,
+    peerAvgBonus
+  );
 
   const fetchEmployeeData = async (empId: string) => {
     if (!empId) return;
@@ -209,74 +167,84 @@ export default function EvaluationForm() {
           setFormData(prev => ({
             ...prev,
             employeeName: emp.name + (emp.khmerName ? ` (${emp.khmerName})` : ''),
-            campus: emp.campus || prev.campus,
-            department: emp.department || prev.department,
-            position: emp.position || prev.position,
-            category: emp.category || prev.category,
-            appraiser: emp.supervisorId || prev.appraiser,
-            supporter: emp.supporterId || prev.supporter,
-            weightScheme: emp.evalModel || prev.weightScheme,
-            evalPeriod: emp.evalPeriod || prev.evalPeriod
+            campus: emp.campus || prev.campus, department: emp.department || prev.department,
+            position: emp.position || prev.position, category: emp.category || prev.category,
+            appraiser: emp.supervisorId || prev.appraiser, supporter: emp.supporterId || prev.supporter,
+            weightScheme: emp.evalModel || prev.weightScheme, evalPeriod: emp.evalPeriod || prev.evalPeriod
           }));
         }
       }
-    } catch (err) {
-      console.error("Failed to fetch employee", err);
-    }
+    } catch (err) { console.error("Failed to fetch employee", err); }
   };
 
-  // Calculate permissions based on role and status
+  // ─── RBAC Permissions ───
   const canEditSelf = canEditSelfEval(user, { employeeId: formData.employeeId, status: formData.status }, isViewOnly);
   const canEditSuper = canEditSupervisorSection(user, { appraiser: formData.appraiser, status: formData.status }, isViewOnly);
   const canEditSupporter = canEditSupporterSection(user, { supporter: formData.supporter, status: formData.status }, isViewOnly);
   const canEditMgmt = canEditManagementSection(user, isViewOnly);
-  
-  // Submit actions handling
-  const nextStatus = (action: 'save' | 'submit') => getNextStatus(formData.status, action, showSupporter);
+  const canEditAsp = canEditAspSection(user, isViewOnly);
 
+  // ─── Status & Workflow ───
+  const nextStatus = (action: 'save' | 'submit') => getNextStatus(formData.status, action, cols.supporter);
+  const isCompleted = formData.status === 'Completed' || formData.status === 'Approved';
+  const workflowStage = getWorkflowStage(formData.status);
+
+  // ─── Submit Handler ───
   const handleActionSubmit = async (e: React.FormEvent, action: 'save' | 'submit') => {
     e.preventDefault();
     if (isViewOnly) return;
-    
     setLoading(true);
-
     try {
       const targetStatus = nextStatus(action);
       const res = await apiFetch(editId ? `/api/evaluations/${editId}` : '/api/evaluations', {
         method: editId ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          ...formData,
-          status: targetStatus,
-          criteriaScores,
-          peerFeedbacks,
-          totalSelf,
-          totalSuper,
-          overallScore
+          ...formData, status: targetStatus, criteriaScores, peerFeedbacks,
+          totalSelf, totalSuper, overallScore
         })
       });
-
       if (!res.ok) throw new Error('Failed to submit evaluation');
       navigate('/dashboard');
     } catch (err) {
       console.error(err);
       alert('Error saving evaluation');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   const handleSubmit = (e: React.FormEvent) => handleActionSubmit(e, 'submit');
 
-  if (configLoading || profilesLoading) return <div className="text-center p-12 text-slate-500 font-bold">Loading form configuration...</div>;
+  if (configLoading || profilesLoading) {
+    return (
+      <div className="flex items-center justify-center p-16">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm font-medium text-slate-400">Loading form configuration...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Workflow Stage Steps ───
+  const workflowSteps = [
+    { key: 'self', label: 'Self-Eval', khLabel: 'ខ្លួនឯង' },
+    { key: 'supervisor', label: 'Supervisor', khLabel: 'អ្នកគ្រប់គ្រង' },
+    ...(cols.supporter ? [{ key: 'supporter', label: 'Supporter', khLabel: 'អ្នកគាំទ្រ' }] : []),
+    { key: 'final', label: 'Final', khLabel: 'បញ្ចប់' },
+  ];
+
+  const currentStepIdx = workflowSteps.findIndex(s => {
+    if (s.key === 'self') return workflowStage === 'Self-Evaluation';
+    if (s.key === 'supervisor') return workflowStage === 'Supervisor Review';
+    if (s.key === 'supporter') return workflowStage === 'Supporter Review';
+    if (s.key === 'final') return workflowStage === 'Completed' || workflowStage === 'Approved';
+    return false;
+  });
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-6xl mx-auto space-y-8 print:space-y-4 print:max-w-none">
-      
-      {/* Print Only Header */}
+    <form onSubmit={handleSubmit} className="max-w-6xl mx-auto space-y-6 sm:space-y-8 print:space-y-4 print:max-w-none">
+
+      {/* Print Header */}
       <div className="hidden print:flex flex-col items-center justify-center mb-8 border-b border-slate-200 pb-6">
         <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
           <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path></svg>
@@ -286,174 +254,169 @@ export default function EvaluationForm() {
         <div className="text-xs text-slate-500 font-medium">Performance Appraisal System • {format(new Date(), 'dd MMM yyyy')}</div>
       </div>
 
+      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">
             {isViewOnly ? 'របាយការណ៍វាយតម្លៃ' : editId ? 'កែប្រែការវាយតម្លៃ' : 'ការវាយតម្លៃបុគ្គលិកថ្មី'}
           </h1>
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">
             {isViewOnly ? 'View Evaluation Report' : editId ? 'Edit Performance Evaluation' : 'Create a New Performance Evaluation'}
           </p>
         </div>
-        
         <div className="flex items-center gap-3">
           {isViewOnly && (
-            <button 
-              type="button"
-              onClick={() => window.print()}
-              className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl shadow-sm transition-colors active:scale-95"
-            >
-              <Printer size={18} />
-              បោះពុម្ព / Print PDF
+            <button type="button" onClick={() => window.print()}
+              className="flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 glass-card rounded-2xl text-slate-700 dark:text-slate-300 font-bold text-sm transition-all active:scale-95 hover:bg-white/80 dark:hover:bg-white/10">
+              <Printer size={18} /> Print PDF
             </button>
           )}
-
-          {!isViewOnly && (
+          {!isViewOnly && !isCompleted && (
             <>
-              {formData.status !== 'Completed' && formData.status !== 'Approved' && (
-                <button 
-                  type="button"
-                  onClick={(e) => handleActionSubmit(e, 'save')}
-                  disabled={loading}
-                  className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl shadow-sm transition-colors active:scale-95 disabled:opacity-50"
-                >
-                  រក្សាទុក / Save as Draft
-                </button>
-              )}
-              <button 
-                type="submit"
-                disabled={loading}
-                className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg transition-colors active:scale-95 disabled:opacity-50"
-              >
+              <button type="button" onClick={(e) => handleActionSubmit(e, 'save')} disabled={loading}
+                className="flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 glass-card rounded-2xl text-slate-700 dark:text-slate-300 font-bold text-sm transition-all active:scale-95 disabled:opacity-50">
+                Save as Draft
+              </button>
+              <button type="submit" disabled={loading}
+                className="flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm rounded-2xl shadow-lg shadow-indigo-500/25 transition-all active:scale-95 disabled:opacity-50">
                 <Save size={18} />
-                {loading ? 'កំពុងរក្សាទុក...' : 'បញ្ជូនបន្ត / Submit'}
+                {loading ? 'Saving...' : 'Submit'}
               </button>
             </>
           )}
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-        <div className="p-8 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
-          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-6">ព័ត៌មានបុគ្គលិក<br/><span className="text-sm font-medium text-slate-500">Employee Information</span></h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Input disabled={isViewOnly} label={<>លេខសម្គាល់បុគ្គលិក<br/><span className="text-[10px] font-normal">Employee ID (Staff ID)</span></>} value={formData.employeeId} onChange={v => setFormData({...formData, employeeId: v})} onBlur={() => fetchEmployeeData(formData.employeeId)} required />
-            <Input disabled={isViewOnly} label={<>ឈ្មោះបុគ្គលិក<br/><span className="text-[10px] font-normal">Employee Name</span></>} value={formData.employeeName} onChange={v => setFormData({...formData, employeeName: v})} required />
-            <Input disabled={isViewOnly} label={<>សាខា<br/><span className="text-[10px] font-normal">Campus</span></>} value={formData.campus} onChange={v => setFormData({...formData, campus: v})} required />
-            <Input disabled={isViewOnly} label={<>ផ្នែក / នាយកដ្ឋាន<br/><span className="text-[10px] font-normal">Department</span></>} value={formData.department} onChange={v => setFormData({...formData, department: v})} required />
-            <Input disabled={isViewOnly} label={<>តួនាទី<br/><span className="text-[10px] font-normal">Position</span></>} value={formData.position} onChange={v => setFormData({...formData, position: v})} required />
-            <Input disabled={isViewOnly} label={<>ប្រភេទបុគ្គលិក<br/><span className="text-[10px] font-normal">Category</span></>} value={formData.category} onChange={v => setFormData({...formData, category: v})} />
-            <Input disabled={isViewOnly} label={<>អ្នកវាយតម្លៃផ្ទាល់<br/><span className="text-[10px] font-normal">Direct Supervisor</span></>} value={formData.appraiser} onChange={v => setFormData({...formData, appraiser: v})} required />
-            <Input disabled={isViewOnly} label={<>អ្នកគាំទ្រវាយតម្លៃ<br/><span className="text-[10px] font-normal">Supporter</span></>} value={formData.supporter} onChange={v => setFormData({...formData, supporter: v})} />
-            <Input disabled={isViewOnly} label={<>វដ្តវាយតម្លៃ<br/><span className="text-[10px] font-normal">Evaluation Period</span></>} value={formData.evalPeriod} onChange={v => setFormData({...formData, evalPeriod: v})} />
-            <Input disabled={isViewOnly} label={<>កាលបរិច្ឆេទត្រួតពិនិត្យ<br/><span className="text-[10px] font-normal">Review Date</span></>} type="date" value={formData.reviewDate} onChange={v => setFormData({...formData, reviewDate: v})} required />
-            
+      {/* ─── Workflow Progress ─── */}
+      {editId && (
+        <div className="glass-card-strong rounded-3xl p-4 sm:p-6 print:hidden">
+          <div className="flex items-center justify-between overflow-x-auto gap-2">
+            {workflowSteps.map((step, i) => {
+              const isDone = i < currentStepIdx || isCompleted;
+              const isCurrent = i === currentStepIdx;
+              return (
+                <React.Fragment key={step.key}>
+                  <div className={cn("flex items-center gap-2 shrink-0", isDone && "text-emerald-600 dark:text-emerald-400", isCurrent && "text-indigo-600 dark:text-indigo-400", !isDone && !isCurrent && "text-slate-400 dark:text-slate-600")}>
+                    {isDone ? <CheckCircle2 size={18} className="text-emerald-500" /> : isCurrent ? <Unlock size={18} /> : <Circle size={18} />}
+                    <span className="text-xs sm:text-sm font-bold whitespace-nowrap">{step.label}</span>
+                  </div>
+                  {i < workflowSteps.length - 1 && (
+                    <div className={cn("h-0.5 w-6 sm:w-10 rounded-full shrink-0", i < currentStepIdx ? "bg-emerald-400" : i === currentStepIdx ? "bg-indigo-400" : "bg-slate-200 dark:bg-slate-700")} />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+          <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+              <Lock size={12} /> {formData.status}
+            </span>
+            <span>•</span>
+            <span>Current stage: {workflowStage}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Employee Information ─── */}
+      <div className="glass-card-strong rounded-3xl overflow-hidden">
+        <div className="p-6 sm:p-8 border-b border-white/20 dark:border-white/[0.06]">
+          <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white mb-5 sm:mb-6">
+            ព័ត៌មានបុគ្គលិក<br />
+            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Employee Information</span>
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <Input disabled={isViewOnly} label={<>Employee ID / លេខសម្គាល់</>} value={formData.employeeId} onChange={v => setFormData({...formData, employeeId: v})} onBlur={() => fetchEmployeeData(formData.employeeId)} required />
+            <Input disabled={isViewOnly} label={<>Employee Name / ឈ្មោះ</>} value={formData.employeeName} onChange={v => setFormData({...formData, employeeName: v})} required />
+            <Input disabled={isViewOnly} label={<>Campus / សាខា</>} value={formData.campus} onChange={v => setFormData({...formData, campus: v})} required />
+            <Input disabled={isViewOnly} label={<>Department / ផ្នែក</>} value={formData.department} onChange={v => setFormData({...formData, department: v})} required />
+            <Input disabled={isViewOnly} label={<>Position / តួនាទី</>} value={formData.position} onChange={v => setFormData({...formData, position: v})} required />
+            <Input disabled={isViewOnly} label={<>Category / ប្រភេទ</>} value={formData.category} onChange={v => setFormData({...formData, category: v})} />
+            <Input disabled={isViewOnly} label={<>Supervisor / អ្នកវាយតម្លៃ</>} value={formData.appraiser} onChange={v => setFormData({...formData, appraiser: v})} required />
+            <Input disabled={isViewOnly} label={<>Supporter / អ្នកគាំទ្រ</>} value={formData.supporter} onChange={v => setFormData({...formData, supporter: v})} />
+            <Input disabled={isViewOnly} label={<>Eval Period / វដ្ត</>} value={formData.evalPeriod} onChange={v => setFormData({...formData, evalPeriod: v})} />
+            <Input disabled={isViewOnly} label={<>Review Date / កាលបរិច្ឆេទ</>} type="date" value={formData.reviewDate} onChange={v => setFormData({...formData, reviewDate: v})} required />
+
             <div>
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">ប្រភេទការវាយតម្លៃ<br/><span className="text-[10px] font-normal">Evaluation Type</span></label>
-              <select 
-                disabled={isViewOnly || !!editId}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 font-medium text-slate-900 dark:text-slate-100 outline-none transition-all disabled:opacity-75 disabled:bg-slate-100 disabled:dark:bg-slate-900"
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Evaluation Type / ប្រភេទ</label>
+              <select disabled={isViewOnly || !!editId}
+                className="w-full px-4 py-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.1] bg-white/60 dark:bg-white/[0.06] backdrop-blur-xl focus:ring-2 focus:ring-indigo-500 font-medium text-sm text-slate-900 dark:text-slate-100 outline-none transition-all disabled:opacity-60"
                 value={formData.evaluationType}
-                onChange={e => setFormData({...formData, evaluationType: e.target.value})}
-              >
-                {config?.types?.map(s => (
-                  <option key={s.id} value={s.id}>{s.label}</option>
-                ))}
+                onChange={e => setFormData({...formData, evaluationType: e.target.value})}>
+                {config?.types?.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">របៀបគណនាពិន្ទុ<br/><span className="text-[10px] font-normal">Weighting Scheme</span></label>
-              <select 
-                disabled={isViewOnly || !!editId}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 font-medium text-slate-900 dark:text-slate-100 outline-none transition-all disabled:opacity-75 disabled:bg-slate-100 disabled:dark:bg-slate-900"
+              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Weighting Scheme / របៀបគណនា</label>
+              <select disabled={isViewOnly || !!editId}
+                className="w-full px-4 py-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.1] bg-white/60 dark:bg-white/[0.06] backdrop-blur-xl focus:ring-2 focus:ring-indigo-500 font-medium text-sm text-slate-900 dark:text-slate-100 outline-none transition-all disabled:opacity-60"
                 value={formData.weightScheme}
-                onChange={e => setFormData({...formData, weightScheme: e.target.value})}
-              >
-                {config?.weightingSchemes?.map(s => (
-                  <option key={s.id} value={s.id}>{s.label}</option>
-                ))}
+                onChange={e => setFormData({...formData, weightScheme: e.target.value})}>
+                {config?.weightingSchemes?.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
             </div>
           </div>
         </div>
 
-        <div className="p-8">
-
+        {/* ─── Criteria Scoring Table ─── */}
+        <div className="p-4 sm:p-8">
           {(() => {
             const sections = config?.sections?.[formData.evaluationType] || [];
             const shownIds = new Set<number>();
             const allBlocks: React.ReactNode[] = [];
 
             const renderTable = (crits: typeof currentCriteria, blockKey: string) => (
-              <div key={blockKey} className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 mb-8">
+              <div key={blockKey} className="overflow-x-auto rounded-2xl border border-white/30 dark:border-white/[0.08] mb-6 sm:mb-8">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50/50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-700 uppercase tracking-wide text-xs">
-                    <tr>
-                      <th className="px-6 py-4 w-12 text-center">#</th>
-                      <th className="px-6 py-4 min-w-[300px]">លក្ខណៈវាយតម្លៃ<br/><span className="text-[10px] font-normal">Criteria</span></th>
-                      {showSelf && <th className="px-6 py-4 text-center w-36">ខ្លួនឯង<br/><span className="text-[10px] font-normal">Self</span></th>}
-                      {showSuper && <th className="px-6 py-4 text-center w-36">អ្នកគ្រប់គ្រង<br/><span className="text-[10px] font-normal">Supervisor</span></th>}
-                      {showSupporter && <th className="px-6 py-4 text-center w-36">អ្នកគាំទ្រ<br/><span className="text-[10px] font-normal">Supporter</span></th>}
-                      {showManagement && <th className="px-6 py-4 text-center w-36">ថ្នាក់គ្រប់គ្រង<br/><span className="text-[10px] font-normal">Management</span></th>}
-                      {showAsp && <th className="px-6 py-4 text-center w-36">គណៈអភិបាល<br/><span className="text-[10px] font-normal">ASP</span></th>}
+                  <thead>
+                    <tr className="bg-slate-50/80 dark:bg-white/[0.03] border-b border-slate-200/60 dark:border-white/[0.06]">
+                      <th className="px-4 sm:px-6 py-3 sm:py-4 w-10 text-center text-xs font-bold text-slate-500 uppercase">#</th>
+                      <th className="px-4 sm:px-6 py-3 sm:py-4 min-w-[200px] text-xs font-bold text-slate-500 uppercase">Criteria / លក្ខណៈ</th>
+                      {cols.self && <th className="px-3 sm:px-6 py-3 sm:py-4 text-center w-28 sm:w-36 text-xs font-bold text-slate-500 uppercase">Self<br/><span className="font-normal normal-case">ខ្លួនឯង</span></th>}
+                      {cols.super && <th className="px-3 sm:px-6 py-3 sm:py-4 text-center w-28 sm:w-36 text-xs font-bold text-indigo-500 uppercase">Supervisor<br/><span className="font-normal normal-case">អ្នកគ្រប់គ្រង</span></th>}
+                      {cols.supporter && <th className="px-3 sm:px-6 py-3 sm:py-4 text-center w-28 sm:w-36 text-xs font-bold text-teal-500 uppercase">Supporter<br/><span className="font-normal normal-case">អ្នកគាំទ្រ</span></th>}
+                      {cols.management && <th className="px-3 sm:px-6 py-3 sm:py-4 text-center w-28 sm:w-36 text-xs font-bold text-amber-500 uppercase">Management<br/><span className="font-normal normal-case">ថ្នាក់គ្រប់គ្រង</span></th>}
+                      {cols.asp && <th className="px-3 sm:px-6 py-3 sm:py-4 text-center w-28 sm:w-36 text-xs font-bold text-rose-500 uppercase">ASP<br/><span className="font-normal normal-case">គណៈអភិបាល</span></th>}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                  <tbody className="divide-y divide-slate-100/60 dark:divide-white/[0.04]">
                     {crits.map(crit => {
                       const i = currentCriteria.indexOf(crit);
                       return (
-                        <tr key={crit.id} className="hover:bg-slate-50/30 dark:hover:bg-slate-700/30 transition-colors">
-                          <td className="px-6 py-4 font-bold text-slate-400 dark:text-slate-500 text-center">{i + 1}</td>
-                          <td className="px-6 py-4">
-                            <div className="font-bold text-slate-900 dark:text-slate-100 text-base">{crit.kh}</div>
-                            <div className="text-slate-500 dark:text-slate-400 font-medium text-xs mt-0.5 mb-2">{crit.en}</div>
-                            <div className="text-slate-700 dark:text-slate-300 font-medium text-sm leading-relaxed">{crit.khDesc}</div>
-                            <div className="text-slate-500 dark:text-slate-400 font-medium text-xs mt-1 leading-relaxed">{crit.desc}</div>
+                        <tr key={crit.id} className="hover:bg-slate-50/30 dark:hover:bg-white/[0.02] transition-colors">
+                          <td className="px-4 sm:px-6 py-3 sm:py-4 font-bold text-slate-400 text-center text-xs">{i + 1}</td>
+                          <td className="px-4 sm:px-6 py-3 sm:py-4">
+                            <div className="font-bold text-slate-900 dark:text-slate-100 text-sm sm:text-base">{crit.kh}</div>
+                            <div className="text-slate-500 dark:text-slate-400 font-medium text-xs mt-0.5">{crit.en}</div>
                           </td>
-                          {showSelf && (
-                            <td className="px-6 py-3">
-                              <input type="number" step="0.5" min="0" max={crit.max || 10} required disabled={!canEditSelf}
-                                className="w-full px-3 py-2 text-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-lg text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-transparent disabled:border-transparent print:border-none print:p-0"
-                                value={criteriaScores[i]?.selfScore ?? ''}
-                                onChange={e => handleCriteriaChange(i, 'selfScore', e.target.value, crit.max)}
-                              />
+                          {cols.self && (
+                            <td className="px-3 sm:px-6 py-3">
+                              <ScoreInput value={criteriaScores[i]?.selfScore ?? 0} max={crit.max || 10} disabled={!canEditSelf}
+                                color="slate" onChange={v => handleCriteriaChange(i, 'selfScore', v, crit.max)} />
                             </td>
                           )}
-                          {showSuper && (
-                            <td className="px-6 py-3">
-                              <input type="number" step="0.5" min="0" max={crit.max || 10} required disabled={!canEditSuper}
-                                className="w-full px-3 py-2 text-center rounded-lg border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50/50 dark:bg-indigo-500/10 font-bold text-lg text-indigo-700 dark:text-indigo-400 focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-transparent disabled:border-transparent print:border-none print:p-0"
-                                value={criteriaScores[i]?.superScore ?? ''}
-                                onChange={e => handleCriteriaChange(i, 'superScore', e.target.value, crit.max)}
-                              />
+                          {cols.super && (
+                            <td className="px-3 sm:px-6 py-3">
+                              <ScoreInput value={criteriaScores[i]?.superScore ?? 0} max={crit.max || 10} disabled={!canEditSuper}
+                                color="indigo" onChange={v => handleCriteriaChange(i, 'superScore', v, crit.max)} />
                             </td>
                           )}
-                          {showSupporter && (
-                            <td className="px-6 py-3">
-                              <input type="number" step="0.5" min="0" max={crit.max || 10} required disabled={!canEditSupporter}
-                                className="w-full px-3 py-2 text-center rounded-lg border border-teal-200 dark:border-teal-500/30 bg-teal-50/50 dark:bg-teal-500/10 font-bold text-lg text-teal-700 dark:text-teal-400 focus:ring-2 focus:ring-teal-500 outline-none disabled:bg-transparent disabled:border-transparent print:border-none print:p-0"
-                                value={criteriaScores[i]?.supporterScore ?? ''}
-                                onChange={e => handleCriteriaChange(i, 'supporterScore', e.target.value, crit.max)}
-                              />
+                          {cols.supporter && (
+                            <td className="px-3 sm:px-6 py-3">
+                              <ScoreInput value={criteriaScores[i]?.supporterScore ?? 0} max={crit.max || 10} disabled={!canEditSupporter}
+                                color="teal" onChange={v => handleCriteriaChange(i, 'supporterScore', v, crit.max)} />
                             </td>
                           )}
-                          {showManagement && (
-                            <td className="px-6 py-3">
-                              <input type="number" step="0.5" min="0" max={crit.max || 10} required disabled={!canEditMgmt}
-                                className="w-full px-3 py-2 text-center rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/10 font-bold text-lg text-amber-700 dark:text-amber-400 focus:ring-2 focus:ring-amber-500 outline-none disabled:bg-transparent disabled:border-transparent print:border-none print:p-0"
-                                value={criteriaScores[i]?.managementScore ?? ''}
-                                onChange={e => handleCriteriaChange(i, 'managementScore', e.target.value, crit.max)}
-                              />
+                          {cols.management && (
+                            <td className="px-3 sm:px-6 py-3">
+                              <ScoreInput value={criteriaScores[i]?.managementScore ?? 0} max={crit.max || 10} disabled={!canEditMgmt}
+                                color="amber" onChange={v => handleCriteriaChange(i, 'managementScore', v, crit.max)} />
                             </td>
                           )}
-                          {showAsp && (
-                            <td className="px-6 py-3">
-                              <input type="number" step="0.5" min="0" max={crit.max || 10} required disabled={!canEditMgmt}
-                                className="w-full px-3 py-2 text-center rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50/50 dark:bg-rose-500/10 font-bold text-lg text-rose-700 dark:text-rose-400 focus:ring-2 focus:ring-rose-500 outline-none disabled:bg-transparent disabled:border-transparent print:border-none print:p-0"
-                                value={criteriaScores[i]?.aspScore ?? ''}
-                                onChange={e => handleCriteriaChange(i, 'aspScore', e.target.value, crit.max)}
-                              />
+                          {cols.asp && (
+                            <td className="px-3 sm:px-6 py-3">
+                              <ScoreInput value={criteriaScores[i]?.aspScore ?? 0} max={crit.max || 10} disabled={!canEditAsp}
+                                color="rose" onChange={v => handleCriteriaChange(i, 'aspScore', v, crit.max)} />
                             </td>
                           )}
                         </tr>
@@ -469,13 +432,9 @@ export default function EvaluationForm() {
               if (sectionCriteria.length === 0) return;
               sectionCriteria.forEach(c => shownIds.add(c.id));
               allBlocks.push(
-                <div key={`heading-${section.id}`} className="mb-2 mt-6 first:mt-0">
-                  <h3 className="text-lg font-extrabold text-indigo-700 dark:text-indigo-300 tracking-wider">
-                    {section.khName || section.name}
-                  </h3>
-                  {section.khName && section.name && (
-                    <div className="text-sm font-bold text-indigo-500 dark:text-indigo-400">{section.name}</div>
-                  )}
+                <div key={`heading-${section.id}`} className="mb-2 mt-5 sm:mt-6 first:mt-0">
+                  <h3 className="text-base sm:text-lg font-extrabold text-indigo-700 dark:text-indigo-300 tracking-wide">{section.khName || section.name}</h3>
+                  {section.khName && section.name && <div className="text-xs sm:text-sm font-bold text-indigo-500 dark:text-indigo-400">{section.name}</div>}
                 </div>
               );
               allBlocks.push(renderTable(sectionCriteria, `table-${section.id}`));
@@ -483,75 +442,82 @@ export default function EvaluationForm() {
 
             const uncategorized = currentCriteria.filter(c => !shownIds.has(c.id));
             if (uncategorized.length > 0) {
-              allBlocks.push(
-                <div key="heading-uncategorized" className="mb-2 mt-6 first:mt-0">
-                  <h3 className="text-lg font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Other Criteria</h3>
-                </div>
-              );
+              allBlocks.push(<div key="heading-unc" className="mb-2 mt-5 sm:mt-6 first:mt-0"><h3 className="text-base sm:text-lg font-extrabold text-slate-500 uppercase tracking-wide">Other Criteria</h3></div>);
               allBlocks.push(renderTable(uncategorized, 'table-uncategorized'));
             }
 
             return allBlocks;
           })()}
 
-          <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+          {/* ─── Totals Footer ─── */}
+          <div className="overflow-x-auto rounded-2xl border border-white/30 dark:border-white/[0.08]">
             <table className="w-full text-left text-sm">
-              <tfoot className="bg-slate-50 dark:bg-slate-900/50">
-                <tr>
-                  <td colSpan={2} className="px-6 py-4 font-extrabold text-slate-800 dark:text-slate-100 text-right uppercase tracking-widest text-xs">Total Scores / សរុប (Max {maxPossibleScore})</td>
-                  {showSelf && <td className="px-6 py-4 text-center font-extrabold text-xl text-slate-700 dark:text-slate-300">{totalSelf.toFixed(1)}</td>}
-                  {showSuper && <td className="px-6 py-4 text-center font-extrabold text-xl text-indigo-600 dark:text-indigo-400">{totalSuper.toFixed(1)}</td>}
-                  {showSupporter && <td className="px-6 py-4 text-center font-extrabold text-xl text-teal-600 dark:text-teal-400">{totalSupporter.toFixed(1)}</td>}
-                  {showManagement && <td className="px-6 py-4 text-center font-extrabold text-xl text-amber-600 dark:text-amber-400">{totalManagement.toFixed(1)}</td>}
-                  {showAsp && <td className="px-6 py-4 text-center font-extrabold text-xl text-rose-600 dark:text-rose-400">{totalAsp.toFixed(1)}</td>}
+              <tfoot>
+                <tr className="bg-slate-50/80 dark:bg-white/[0.03]">
+                  <td colSpan={2} className="px-4 sm:px-6 py-4 font-extrabold text-slate-800 dark:text-slate-100 text-right text-xs uppercase tracking-widest">Total / សរុប (Max {maxPossibleScore})</td>
+                  {cols.self && <td className="px-3 sm:px-6 py-4 text-center font-extrabold text-lg text-slate-700 dark:text-slate-300">{totalSelf.toFixed(1)}</td>}
+                  {cols.super && <td className="px-3 sm:px-6 py-4 text-center font-extrabold text-lg text-indigo-600 dark:text-indigo-400">{totalSuper.toFixed(1)}</td>}
+                  {cols.supporter && <td className="px-3 sm:px-6 py-4 text-center font-extrabold text-lg text-teal-600 dark:text-teal-400">{totalSupporter.toFixed(1)}</td>}
+                  {cols.management && <td className="px-3 sm:px-6 py-4 text-center font-extrabold text-lg text-amber-600 dark:text-amber-400">{totalManagement.toFixed(1)}</td>}
+                  {cols.asp && <td className="px-3 sm:px-6 py-4 text-center font-extrabold text-lg text-rose-600 dark:text-rose-400">{totalAsp.toFixed(1)}</td>}
                 </tr>
               </tfoot>
             </table>
           </div>
+
+          {/* ─── RBAC Info Banner ─── */}
+          {editId && !isViewOnly && !isCompleted && (
+            <div className="mt-4 p-4 rounded-2xl bg-amber-50/80 dark:bg-amber-500/5 border border-amber-200/50 dark:border-amber-500/15">
+              <div className="flex items-start gap-3">
+                <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+                <div className="text-xs sm:text-sm font-medium text-amber-700 dark:text-amber-300">
+                  <span className="font-bold">Access Control:</span> You can only edit your assigned section.
+                  Self-evaluation scores are locked and read-only for all non-employee users.
+                  Status: <span className="font-bold">{formData.status}</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* 360 Peer Feedback Module */}
-        <div className="p-8 border-t border-slate-100 dark:border-slate-700 bg-slate-50/30 dark:bg-slate-900/30">
-          <div className="flex items-center justify-between mb-6">
+        {/* ─── 360 Peer Feedback ─── */}
+        <div className="p-4 sm:p-8 border-t border-white/20 dark:border-white/[0.06]">
+          <div className="flex items-center justify-between mb-5 sm:mb-6">
             <div>
-              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">មតិយោបល់មិត្តរួមការងារ (៣៦០ ដឺក្រេ)<br/><span className="text-sm font-medium text-slate-500">360-Degree Peer Feedback</span></h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Optional. Adds weight to the overall score.</p>
+              <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white">Peer Feedback (360°)</h2>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">មតិយោបល់មិត្តរួមការងារ • Optional</p>
             </div>
             {!isViewOnly && (
-              <button type="button" onClick={addPeerFeedback} className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-sm rounded-xl shadow-sm transition-colors print:hidden">
-                <Plus size={16} /> បន្ថែមមតិយោបល់ / Add Feedback
+              <button type="button" onClick={addPeerFeedback}
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 glass-card rounded-2xl text-slate-700 dark:text-slate-300 font-bold text-xs sm:text-sm transition-all active:scale-95 hover:bg-white/80 dark:hover:bg-white/10">
+                <Plus size={16} /> Add
               </button>
             )}
           </div>
-          
           {peerFeedbacks.length === 0 ? (
-            <div className="text-center py-8 text-slate-400 dark:text-slate-500 font-medium border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800">
-              មិនទាន់មានមតិយោបល់ទេ។<br/><span className="text-xs">No peer feedback added yet.</span>
+            <div className="text-center py-8 text-slate-400 font-medium border-2 border-dashed border-slate-200 dark:border-white/[0.08] rounded-2xl bg-white/40 dark:bg-white/[0.02] text-sm">
+              No peer feedback added yet.
             </div>
           ) : (
             <div className="space-y-4">
               {peerFeedbacks.map((fb, i) => (
-                <div key={i} className="flex gap-4 items-start p-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm relative group hover:border-indigo-200 transition-all">
-                  <div className="flex-1 space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <Input disabled={isViewOnly} label={<>ឈ្មោះមិត្តរួមការងារ<br/><span className="text-[10px] font-normal">Peer Name</span></>} value={fb.peerName} onChange={v => updatePeerFeedback(i, 'peerName', v)} required />
-                      <Input disabled={isViewOnly} label={<>ពិន្ទុ (1-10)<br/><span className="text-[10px] font-normal">Rating (1-10)</span></>} type="number" value={fb.score.toString()} onChange={v => updatePeerFeedback(i, 'score', parseFloat(v))} required />
+                <div key={i} className="flex gap-3 sm:gap-4 items-start p-4 sm:p-6 glass-card rounded-2xl relative group hover:border-indigo-200 dark:hover:border-indigo-500/20 transition-all">
+                  <div className="flex-1 space-y-3 sm:space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                      <Input disabled={isViewOnly} label={<>Peer Name / ឈ្មោះ</>} value={fb.peerName} onChange={v => updatePeerFeedback(i, 'peerName', v)} required />
+                      <Input disabled={isViewOnly} label={<>Rating (1-10) / ពិន្ទុ</>} type="number" value={fb.score.toString()} onChange={v => updatePeerFeedback(i, 'score', parseFloat(v))} required />
                     </div>
                     <div>
-                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">សង្ខេបមតិយោបល់<br/><span className="text-[10px] font-normal">Feedback Summary</span></label>
-                      <textarea 
-                        disabled={isViewOnly}
-                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none font-medium disabled:opacity-75 disabled:bg-slate-100 disabled:dark:bg-slate-900 print:bg-transparent print:border-none print:p-0"
-                        rows={2}
-                        value={fb.feedback}
-                        onChange={e => updatePeerFeedback(i, 'feedback', e.target.value)}
-                        required
-                      />
+                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Feedback / សង្ខេប</label>
+                      <textarea disabled={isViewOnly}
+                        className="w-full px-4 py-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.1] bg-white/60 dark:bg-white/[0.04] text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none font-medium text-sm disabled:opacity-60"
+                        rows={2} value={fb.feedback} onChange={e => updatePeerFeedback(i, 'feedback', e.target.value)} required />
                     </div>
                   </div>
                   {!isViewOnly && (
-                    <button type="button" onClick={() => removePeerFeedback(i)} className="p-2 text-slate-300 dark:text-slate-500 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 rounded-lg transition-colors print:hidden">
-                      <Trash2 size={20} />
+                    <button type="button" onClick={() => removePeerFeedback(i)}
+                      className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-colors">
+                      <Trash2 size={18} />
                     </button>
                   )}
                 </div>
@@ -561,81 +527,68 @@ export default function EvaluationForm() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden p-8">
-        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-6">មតិយោបល់អ្នកវាយតម្លៃ<br/><span className="text-sm font-medium text-slate-500">Evaluator Comments</span></h2>
-        <textarea 
-          disabled={isViewOnly || (!canEditSuper && !canEditSupporter && !canEditMgmt)}
-          className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none font-medium disabled:opacity-75 disabled:bg-slate-100 disabled:dark:bg-slate-900 print:bg-transparent print:border-none print:p-0"
+      {/* ─── Evaluator Comments ─── */}
+      <div className="glass-card-strong rounded-3xl overflow-hidden p-4 sm:p-8">
+        <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white mb-4 sm:mb-6">
+          Evaluator Comments / មតិយោបល់អ្នកវាយតម្លៃ
+        </h2>
+        <textarea
+          disabled={isViewOnly || (!canEditSuper && !canEditSupporter && !canEditMgmt && !canEditAsp)}
+          className="w-full px-4 py-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.1] bg-white/60 dark:bg-white/[0.04] text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none font-medium text-sm disabled:opacity-60"
           rows={4}
           value={formData.evaluatorComments}
           onChange={e => setFormData({...formData, evaluatorComments: e.target.value})}
-          placeholder="បញ្ចូលមតិយោបល់របស់អ្នកវាយតម្លៃនៅទីនេះ... / Enter evaluator comments here..."
+          placeholder="Enter evaluator comments here..."
         />
       </div>
 
-      <div className="bg-indigo-900 dark:bg-indigo-950 rounded-2xl shadow-xl p-8 flex flex-col sm:flex-row items-center justify-between text-white border border-indigo-800 dark:border-indigo-900 print:bg-transparent print:border-none print:shadow-none print:text-slate-900 print:p-0 print:border-t print:border-slate-300 print:rounded-none">
-        <div>
-          <div className="text-indigo-200 print:text-slate-500 font-bold uppercase tracking-wider text-xs mb-1">ពិន្ទុវាយតម្លៃចុងក្រោយ / Final Evaluation Rating</div>
-          <div className="flex items-center gap-6">
-            <div className="text-4xl font-extrabold">{overallScore.toFixed(1)} <span className="text-2xl text-indigo-400 dark:text-indigo-500 print:text-slate-500 font-medium">/ 100</span></div>
-            <div className="hidden print:block h-12 w-px bg-slate-300"></div>
-            <div className="hidden print:block text-left">
-              <div className="text-xs text-slate-500 font-bold uppercase mb-1">ចំណាត់ថ្នាក់ / Grade</div>
-              <div className="text-xl font-extrabold text-indigo-600">{getRating(overallScore).khLabel} ({getRating(overallScore).label})</div>
+      {/* ─── Final Score & Submit ─── */}
+      <div className="glass-card-strong rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-4 border-indigo-500/20 dark:border-indigo-400/10 print:bg-transparent print:border-none print:shadow-none print:rounded-none">
+        <div className="text-center sm:text-left">
+          <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Final Evaluation Rating / ពិន្ទុចុងក្រោយ</div>
+          <div className="flex items-center gap-4 justify-center sm:justify-start">
+            <div className="text-3xl sm:text-4xl font-extrabold text-slate-800 dark:text-white">
+              {overallScore.toFixed(1)}
+              <span className="text-lg sm:text-xl text-slate-400 dark:text-slate-500 font-medium ml-1">/ 100</span>
+            </div>
+            <div className="text-xs sm:text-sm font-bold px-3 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+              {getRating(overallScore).label}
             </div>
           </div>
         </div>
-        {!isViewOnly && (
-          <div className="flex items-center gap-3 mt-6 sm:mt-0 print:hidden">
-            {formData.status !== 'Completed' && formData.status !== 'Approved' && (
-              <button 
-                type="button"
-                onClick={(e) => handleActionSubmit(e, 'save')}
-                disabled={loading}
-                className="flex items-center gap-2 px-6 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl shadow-sm transition-colors active:scale-95 disabled:opacity-50"
-              >
-                រក្សាទុក / Draft
-              </button>
-            )}
-            <button 
-              type="submit" 
-              disabled={loading} 
-              className="flex items-center gap-2 px-8 py-4 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-700 font-extrabold rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50"
-            >
-              <Save size={20} />
-              {loading ? 'កំពុងរក្សាទុក...' : 'បញ្ជូនបន្ត / Submit'}
+        {!isViewOnly && !isCompleted && (
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <button type="button" onClick={(e) => handleActionSubmit(e, 'save')} disabled={loading}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 glass-card rounded-2xl text-slate-700 dark:text-slate-300 font-bold text-sm transition-all active:scale-95 disabled:opacity-50">
+              Draft
+            </button>
+            <button type="submit" disabled={loading}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 sm:px-8 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm rounded-2xl shadow-lg shadow-indigo-500/25 transition-all active:scale-95 disabled:opacity-50">
+              <Save size={18} />
+              {loading ? 'Saving...' : 'Submit'}
             </button>
           </div>
         )}
       </div>
 
-      {/* Print Signature Section */}
+      {/* ─── Print Signature ─── */}
       <div className="hidden print:block mt-16 pt-8">
         <div className="mb-12">
-          <span className="font-bold text-slate-700">ស្ថានភាពអនុម័ត / Approval Status:</span> 
-          <span className={cn(
-            "ml-2 font-bold px-3 py-1 rounded border",
+          <span className="font-bold text-slate-700">Approval Status:</span>
+          <span className={cn("ml-2 font-bold px-3 py-1 rounded border",
             (formData.status === 'Approved' || formData.status === 'Completed') ? "text-emerald-600 border-emerald-600" : "text-amber-600 border-amber-600"
           )}>
-            {STATUS_LABELS[formData.status]?.kh || formData.status} / {STATUS_LABELS[formData.status]?.label?.toUpperCase() || formData.status.toUpperCase()}
+            {STATUS_LABELS[formData.status]?.kh || formData.status}
           </span>
         </div>
         <div className="grid grid-cols-3 gap-8">
-          <div className="text-center">
-            <p className="font-bold text-sm mb-16">ហត្ថលេខាអ្នកវាយតម្លៃ / Appraiser</p>
-            <div className="border-t border-slate-400 w-48 mx-auto"></div>
-            <p className="mt-2 text-xs">កាលបរិច្ឆេទ / Date: ........................</p>
-          </div>
-          <div className="text-center">
-            <p className="font-bold text-sm mb-16">ហត្ថលេខាអ្នកត្រួតពិនិត្យ / Reviewer</p>
-            <div className="border-t border-slate-400 w-48 mx-auto"></div>
-            <p className="mt-2 text-xs">កាលបរិច្ឆេទ / Date: ........................</p>
-          </div>
-          <div className="text-center">
-            <p className="font-bold text-sm mb-16">ហត្ថលេខាអ្នកទទួល / Employee</p>
-            <div className="border-t border-slate-400 w-48 mx-auto"></div>
-            <p className="mt-2 text-xs">កាលបរិច្ឆេទ / Date: ........................</p>
-          </div>
+          {[['Appraiser', 'ហត្ថលេខាអ្នកវាយតម្លៃ'], ['Reviewer', 'ហត្ថលេខាអ្នកត្រួតពិនិត្យ'], ['Employee', 'ហត្ថលេខាអ្នកទទួល']].map(([en, kh]) => (
+            <div key={en} className="text-center">
+              <p className="font-bold text-sm mb-16">{kh} / {en}</p>
+              <div className="border-t border-slate-400 w-48 mx-auto"></div>
+              <p className="mt-2 text-xs">Date / កាលបរិច្ឆេទ: ........................</p>
+            </div>
+          ))}
         </div>
       </div>
     </form>
@@ -643,26 +596,54 @@ export default function EvaluationForm() {
 }
 
 function getRating(score: number) {
-  if (score >= 95) return { label: 'Outstanding', khLabel: 'ល្អប្រសើរបំផុត', bg: 'bg-emerald-50', text: 'text-emerald-700' };
-  if (score >= 90) return { label: 'Good', khLabel: 'ល្អ', bg: 'bg-blue-50', text: 'text-blue-700' };
-  if (score >= 70) return { label: 'Meets Exp.', khLabel: 'ល្អបង្គួរ', bg: 'bg-indigo-50', text: 'text-indigo-700' };
-  if (score >= 60) return { label: 'Below Exp.', khLabel: 'មធ្យម', bg: 'bg-amber-50', text: 'text-amber-700' };
-  return { label: 'Not Met', khLabel: 'ត្រូវកែលម្អ', bg: 'bg-red-50', text: 'text-red-700' };
+  if (score >= 95) return { label: 'Outstanding', khLabel: 'ល្អប្រសើរបំផុត' };
+  if (score >= 90) return { label: 'Excellent', khLabel: 'ល្អ' };
+  if (score >= 70) return { label: 'Very Good', khLabel: 'ល្អបង្គួរ' };
+  if (score >= 60) return { label: 'Good', khLabel: 'មធ្យម' };
+  return { label: 'Needs Improvement', khLabel: 'ត្រូវកែលម្អ' };
 }
 
-function Input({ label, value, onChange, onBlur, type="text", required=false, disabled=false }: { label: React.ReactNode, value: string, onChange: (v: string) => void, onBlur?: () => void, type?: string, required?: boolean, disabled?: boolean }) {
+function ScoreInput({ value, max, disabled, color, onChange }: {
+  value: number; max: number; disabled: boolean;
+  color: 'slate' | 'indigo' | 'teal' | 'amber' | 'rose';
+  onChange: (v: string) => void;
+}) {
+  const colorMap = {
+    slate: { border: 'border-slate-200 dark:border-slate-700', bg: 'bg-white dark:bg-slate-800', text: 'text-slate-900 dark:text-slate-100', focus: 'focus:ring-slate-500' },
+    indigo: { border: 'border-indigo-200 dark:border-indigo-500/30', bg: 'bg-indigo-50/50 dark:bg-indigo-500/10', text: 'text-indigo-700 dark:text-indigo-400', focus: 'focus:ring-indigo-500' },
+    teal: { border: 'border-teal-200 dark:border-teal-500/30', bg: 'bg-teal-50/50 dark:bg-teal-500/10', text: 'text-teal-700 dark:text-teal-400', focus: 'focus:ring-teal-500' },
+    amber: { border: 'border-amber-200 dark:border-amber-500/30', bg: 'bg-amber-50/50 dark:bg-amber-500/10', text: 'text-amber-700 dark:text-amber-400', focus: 'focus:ring-amber-500' },
+    rose: { border: 'border-rose-200 dark:border-rose-500/30', bg: 'bg-rose-50/50 dark:bg-rose-500/10', text: 'text-rose-700 dark:text-rose-400', focus: 'focus:ring-rose-500' },
+  };
+  const c = colorMap[color];
+
+  if (disabled) {
+    return (
+      <div className={cn("w-full px-3 py-2 text-center rounded-xl text-sm font-bold", c.text, "print:p-0")}>
+        {value > 0 ? value.toFixed(1) : <span className="text-slate-300 dark:text-slate-600">—</span>}
+      </div>
+    );
+  }
+
+  return (
+    <input type="number" step="0.5" min="0" max={max} required
+      className={cn("w-full px-3 py-2 text-center rounded-xl border font-bold text-lg outline-none transition-all focus:ring-2", c.border, c.bg, c.text, c.focus, "print:border-none print:p-0")}
+      value={value || ''}
+      onChange={e => onChange(e.target.value)}
+    />
+  );
+}
+
+function Input({ label, value, onChange, onBlur, type = "text", required = false, disabled = false }: {
+  label: React.ReactNode; value: string; onChange: (v: string) => void; onBlur?: () => void;
+  type?: string; required?: boolean; disabled?: boolean;
+}) {
   return (
     <div>
       <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">{label}</label>
-      <input 
-        type={type}
-        required={required}
-        disabled={disabled}
-        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 font-medium text-slate-900 dark:text-slate-100 outline-none transition-all disabled:opacity-75 disabled:bg-slate-100 disabled:dark:bg-slate-900"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        onBlur={onBlur}
-      />
+      <input type={type} required={required} disabled={disabled}
+        className="w-full px-4 py-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.1] bg-white/60 dark:bg-white/[0.06] backdrop-blur-xl focus:ring-2 focus:ring-indigo-500 font-medium text-sm text-slate-900 dark:text-slate-100 outline-none transition-all disabled:opacity-60"
+        value={value} onChange={e => onChange(e.target.value)} onBlur={onBlur} />
     </div>
-  )
+  );
 }
