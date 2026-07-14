@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { User } from '../types';
 import { Shield, ShieldAlert, User as UserIcon, Activity, Clock, X, Trash2, Edit2, Plus, Key, Eye, EyeOff, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 
 interface AuditLog {
   id: number;
@@ -36,6 +37,7 @@ export default function UserManagement() {
   const [successMsg, setSuccessMsg] = useState('');
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
   const [showModalPassword, setShowModalPassword] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     if (user?.role === 'superadmin') {
@@ -142,7 +144,8 @@ export default function UserManagement() {
   };
 
   const handleResetAllUsers = async () => {
-    if (!window.confirm('This will reset ALL user accounts to defaults (superadmin, admin, demo users). Any custom users will be removed and passwords restored. Continue?')) return;
+    if (!window.confirm('This will reset ALL user accounts, employees, evaluations, notifications, and logs to defaults. Continue?')) return;
+    setResetting(true);
     try {
       const res = await apiFetch('/api/users/reset', {
         method: 'POST',
@@ -150,13 +153,16 @@ export default function UserManagement() {
       });
       const data = await res.json();
       if (res.ok) {
-        alert('All users have been reset to defaults.');
-        fetchUsers();
+        toast.success('All users and related data reset to defaults');
+        await fetchUsers();
+        await fetchLogs();
       } else {
-        alert(data.error || 'Failed to reset users');
+        toast.error(data.error || 'Failed to reset users');
       }
     } catch (err) {
-      alert('An error occurred');
+      toast.error('An error occurred while resetting');
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -199,8 +205,13 @@ export default function UserManagement() {
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage system access and roles.</p>
             </div>
             <div className="flex items-center gap-3">
-              <button onClick={handleResetAllUsers} className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow-sm transition-colors text-sm">
-                <RotateCcw size={16} /> Reset All Users
+              <button
+                onClick={handleResetAllUsers}
+                disabled={resetting}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow-sm transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RotateCcw size={16} className={resetting ? 'animate-spin' : ''} />
+                {resetting ? 'Resetting...' : 'Reset All Users'}
               </button>
               <button onClick={handleOpenAdd} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm transition-colors text-sm">
                 <Plus size={16} /> Add User

@@ -1,4 +1,4 @@
-const DB_VERSION = '9';
+const DB_VERSION = '10';
 
 const defaultEvaluationConfig = JSON.stringify({
   types: [
@@ -302,9 +302,16 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
       }
     }
 
-    // Users Reset All
+    // Users Reset All — must be BEFORE generic /api/users block
     if (url.includes('/api/users/reset') && method === 'POST') {
       db.users = defaultDb.users.map(u => ({ ...u }));
+      db.employees = defaultDb.employees.map(e => ({ ...e }));
+      db.evaluations = [];
+      db.notifications = [];
+      db.auditLogs = [];
+      if (db.settings) {
+        db.settings.position_form_configs = defaultDb.settings.position_form_configs;
+      }
       saveDb(db);
       return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
