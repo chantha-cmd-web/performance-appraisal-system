@@ -13,7 +13,7 @@ interface Notification {
 }
 
 export default function NotificationsBell() {
-  const { token, user } = useAuth();
+  const { token } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [hasShownToast, setHasShownToast] = useState(false);
@@ -46,7 +46,7 @@ export default function NotificationsBell() {
     };
 
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60000); // Check every minute
+    const interval = setInterval(fetchNotifications, 60000);
     return () => clearInterval(interval);
   }, [token, hasShownToast]);
 
@@ -64,22 +64,22 @@ export default function NotificationsBell() {
     <div className="relative" ref={dropdownRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-slate-400 hover:text-indigo-600 transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+        className="relative p-2.5 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all rounded-2xl hover:bg-slate-100 dark:hover:bg-white/[0.06]"
       >
-        <Bell size={24} />
+        <Bell size={20} />
         {notifications.length > 0 && (
-          <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+          <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-r from-red-500 to-rose-500 text-[9px] font-bold text-white shadow-lg shadow-red-500/30 animate-pulse">
             {notifications.length}
           </span>
         )}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 z-50 overflow-hidden">
-          <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
-            <h3 className="font-bold text-slate-800 dark:text-slate-100">Notifications</h3>
+        <div className="absolute right-0 mt-2 w-80 glass-card-strong rounded-3xl shadow-2xl shadow-slate-200/50 dark:shadow-black/30 z-50 overflow-hidden">
+          <div className="p-4 border-b border-white/20 dark:border-white/[0.06] bg-white/30 dark:bg-white/[0.02]">
+            <h3 className="font-bold text-slate-800 dark:text-white text-sm">Notifications</h3>
           </div>
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-80 overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="p-8 text-center text-slate-500 font-medium text-sm">
                 No new notifications
@@ -92,7 +92,7 @@ export default function NotificationsBell() {
                     navigate(n.link);
                     setIsOpen(false);
                   }}
-                  className="p-4 border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/30 cursor-pointer transition-colors"
+                  className="p-4 border-b border-white/10 dark:border-white/[0.04] hover:bg-white/40 dark:hover:bg-white/[0.04] cursor-pointer transition-colors last:border-b-0"
                 >
                   <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
                     {n.message}

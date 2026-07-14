@@ -8,11 +8,108 @@
   --font-khmer: "Noto Sans Khmer", ui-sans-serif, system-ui, sans-serif;
 }
 
+/* ─── Base ─── */
 body {
   font-family: var(--font-sans);
-  @apply bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100;
+  @apply bg-slate-50 text-slate-900 dark:bg-[#0a0e1a] dark:text-slate-100;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* ─── Glassmorphism Utilities ─── */
+.glass-card {
+  @apply bg-white/70 dark:bg-white/[0.06] backdrop-blur-xl border border-white/40 dark:border-white/[0.08] shadow-sm;
+}
+
+.glass-card-strong {
+  @apply bg-white/80 dark:bg-white/[0.06] backdrop-blur-2xl border border-white/50 dark:border-white/[0.1] shadow-lg shadow-slate-200/50 dark:shadow-black/20;
+}
+
+.glass-input {
+  @apply bg-white/60 dark:bg-white/[0.06] border border-slate-200/60 dark:border-white/[0.1] backdrop-blur-xl;
+}
+
+/* ─── Aurora Background Blobs ─── */
+.aurora-blob {
+  @apply absolute rounded-full mix-blend-multiply dark:mix-blend-screen filter;
+  filter: blur(180px);
+  opacity: 0.25;
+}
+
+.dark .aurora-blob {
+  opacity: 0.30;
+}
+
+.aurora-1 {
+  width: 700px;
+  height: 700px;
+  background: linear-gradient(135deg, #818cf8, #6366f1);
+  top: -15%;
+  left: -10%;
+  animation: auroraFloat1 20s ease-in-out infinite;
+}
+
+.aurora-2 {
+  width: 600px;
+  height: 600px;
+  background: linear-gradient(135deg, #c084fc, #a855f7);
+  bottom: -20%;
+  right: -10%;
+  animation: auroraFloat2 25s ease-in-out infinite;
+}
+
+.aurora-3 {
+  width: 500px;
+  height: 500px;
+  background: linear-gradient(135deg, #f472b6, #ec4899);
+  top: 40%;
+  left: 50%;
+  transform: translateX(-50%);
+  animation: auroraFloat3 22s ease-in-out infinite;
+}
+
+@keyframes auroraFloat1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(80px, 40px) scale(1.1); }
+  66% { transform: translate(-40px, 80px) scale(0.95); }
+}
+
+@keyframes auroraFloat2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-60px, -40px) scale(1.15); }
+  66% { transform: translate(40px, -60px) scale(0.9); }
+}
+
+@keyframes auroraFloat3 {
+  0%, 100% { transform: translateX(-50%) translate(0, 0) scale(1); }
+  33% { transform: translateX(-50%) translate(60px, -30px) scale(1.1); }
+  66% { transform: translateX(-50%) translate(-40px, 40px) scale(0.95); }
+}
+
+/* ─── Focus Ring ─── */
+*:focus-visible {
+  @apply outline-2 outline-offset-2 outline-indigo-500;
+}
+
+/* ─── Custom Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 dark:bg-slate-700 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-400 dark:bg-slate-600;
+}
+
+/* ─── Print Styles ─── */
 @media print {
   body {
     -webkit-print-color-adjust: exact !important;
@@ -31,24 +128,17 @@ body {
     print-color-adjust: exact !important;
     -webkit-print-color-adjust: exact !important;
   }
-  
-  /* Avoid page breaks inside components */
   .print-avoid-break {
     page-break-inside: avoid;
     break-inside: avoid;
   }
-  
   .print-page-break {
     page-break-before: always;
     break-before: page;
   }
-
-  /* Hide scrollbars during print */
   ::-webkit-scrollbar {
     display: none;
   }
-
-  /* Reset layout constraints for print */
   .overflow-hidden,
   .overflow-y-auto,
   .overflow-x-auto,
