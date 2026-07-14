@@ -337,6 +337,57 @@ export default function Dashboard() {
             />
           </motion.div>
 
+          {/* Pending Reviews Banner */}
+          {(() => {
+            const pendingReviews = evals.filter(ev =>
+              canEvaluate(ev, user) && ev.status !== 'Completed' && ev.status !== 'Approved'
+            );
+            if (pendingReviews.length === 0) return null;
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.3 }}
+                className="mb-6"
+              >
+                <div className="rounded-3xl p-5 sm:p-6 border-l-4 border-indigo-500 bg-gradient-to-r from-indigo-50/80 to-purple-50/60 dark:from-indigo-500/10 dark:to-purple-500/5 dark:border-indigo-400">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-indigo-100 dark:bg-indigo-500/20 rounded-xl shrink-0">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600 dark:text-indigo-400"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-bold text-slate-800 dark:text-white text-sm">
+                        {pendingReviews.length} Evaluation{pendingReviews.length > 1 ? 's' : ''} Pending Your Review
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-3">
+                        {user?.role === 'supervisor'
+                          ? 'Employees are waiting for your supervisor evaluation.'
+                          : 'Evaluations are waiting for your supporter review.'}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {pendingReviews.slice(0, 5).map(ev => (
+                          <button
+                            key={ev.id}
+                            onClick={() => navigate(`/evaluation?id=${ev.id}`)}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-white/80 dark:bg-white/[0.06] border border-indigo-200/50 dark:border-indigo-400/20 rounded-xl text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-500/15 transition-all active:scale-95"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                            {ev.employeeName}
+                          </button>
+                        ))}
+                        {pendingReviews.length > 5 && (
+                          <span className="flex items-center px-3 py-1.5 text-xs font-medium text-slate-500">
+                            +{pendingReviews.length - 5} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })()}
+
           {/* Reports Container */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}

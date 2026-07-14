@@ -79,6 +79,7 @@ const defaultDb = {
   employees: [],
   evaluations: [],
   auditLogs: [],
+  notifications: [],
   settings: {
     evaluation_config: defaultEvaluationConfig,
     self_eval_profiles: '[]',
@@ -281,8 +282,38 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
     }
 
     // Notifications
-    if (url.includes('/api/notifications') && method === 'GET') {
-      return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    if (url.includes('/api/notifications')) {
+      if (method === 'GET') {
+        if (!db.notifications) db.notifications = [];
+        return new Response(JSON.stringify(db.notifications), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (method === 'POST') {
+        if (!db.notifications) db.notifications = [];
+        const notification = { ...body, id: 'notif_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), createdAt: new Date().toISOString(), read: false };
+        db.notifications.unshift(notification);
+        saveDb(db);
+        return new Response(JSON.stringify({ success: true, id: notification.id }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (method === 'PUT') {
+        if (!db.notifications) db.notifications = [];
+        if (body?.id && body?.read) {
+          const idx = db.notifications.findIndex((n: any) => n.id === body.id);
+          if (idx >= 0) db.notifications[idx].read = true;
+          saveDb(db);
+        }
+        if (body?.markAllRead && body?.userId) {
+          db.notifications.forEach((n: any) => { if (n.userId === body.userId) n.read = true; });
+          saveDb(db);
+        }
+        return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (method === 'DELETE') {
+        if (!db.notifications) db.notifications = [];
+        const notifId = url.split('/').pop();
+        db.notifications = db.notifications.filter((n: any) => n.id !== notifId);
+        saveDb(db);
+        return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
     }
     
     // Data Management
@@ -303,6 +334,7 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
         db.employees = [];
         db.evaluations = [];
         db.auditLogs = [];
+        db.notifications = [];
         if (db.settings) {
         db.settings.evaluation_config = defaultEvaluationConfig;
         db.settings.self_eval_profiles = '[]';

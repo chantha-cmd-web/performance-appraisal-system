@@ -44,7 +44,7 @@ export function canEditEvaluation(ev: Evaluation, user: User | null): boolean {
   if (isAdmin(user)) return true;
   const status = ev.status || 'Draft';
   if (ev.createdBy === user.id && status === 'Draft') return true;
-  if (ev.employeeId === user.id && (status === 'Draft' || status === 'Self Evaluation Pending')) return true;
+  if (ev.employeeId === user.id && (status === 'Draft' || status === 'Self Evaluation Pending' || status === 'Returned to Employee')) return true;
   if (ev.appraiser === user.id && status === 'Waiting for Supervisor') return true;
   if (ev.supporter === user.id && status === 'Waiting for Supporter') return true;
   return false;
@@ -75,8 +75,8 @@ export function canEditSelfEval(
   if (isViewOnly) return false;
   // Superadmin has full access to everything
   if (isSuperAdmin(user)) return true;
-  // Self-eval is only editable by the employee themselves, during Draft or Self Eval Pending
-  if (user?.id === evalData.employeeId && (evalData.status === 'Draft' || evalData.status === 'Self Evaluation Pending')) return true;
+  // Self-eval is only editable by the employee themselves, during Draft, Self Eval Pending, or Returned
+  if (user?.id === evalData.employeeId && (evalData.status === 'Draft' || evalData.status === 'Self Evaluation Pending' || evalData.status === 'Returned to Employee')) return true;
   return false;
 }
 
@@ -185,14 +185,16 @@ export function calculateOverallScore(
 // Status transition: what status can this user advance to?
 export function getNextStatus(
   currentStatus: string,
-  action: 'save' | 'submit',
+  action: 'save' | 'submit' | 'reject',
   showSupporter: boolean
 ): string {
   if (action === 'save') return currentStatus;
+  if (action === 'reject') return 'Returned to Employee';
 
   switch (currentStatus) {
     case 'Draft':
     case 'Self Evaluation Pending':
+    case 'Returned to Employee':
       return 'Waiting for Supervisor';
     case 'Waiting for Supervisor':
       return showSupporter ? 'Waiting for Supporter' : 'Completed';
@@ -203,11 +205,25 @@ export function getNextStatus(
   }
 }
 
+// Can this user reject/return an evaluation?
+export function canRejectEvaluation(
+  user: User | null,
+  evalData: { appraiser: string; supporter: string; status: string }
+): boolean {
+  if (!user) return false;
+  if (evalData.status === 'Completed' || evalData.status === 'Approved') return false;
+  if (isSuperAdmin(user)) return true;
+  if (evalData.appraiser === user.id && evalData.status === 'Waiting for Supervisor') return true;
+  if (evalData.supporter === user.id && evalData.status === 'Waiting for Supporter') return true;
+  return false;
+}
+
 // Determine the current workflow stage label
 export function getWorkflowStage(status: string): string {
   switch (status) {
     case 'Draft': return 'Self-Evaluation';
     case 'Self Evaluation Pending': return 'Self-Evaluation';
+    case 'Returned to Employee': return 'Returned for Revision';
     case 'Waiting for Supervisor': return 'Supervisor Review';
     case 'Supervisor Completed': return 'Supervisor Review';
     case 'Waiting for Supporter': return 'Supporter Review';
@@ -233,7 +249,7 @@ export function isStageLocked(
 
   switch (stage) {
     case 'self':
-      return status !== 'Draft' && status !== 'Self Evaluation Pending';
+      return status !== 'Draft' && status !== 'Self Evaluation Pending' && status !== 'Returned to Employee';
     case 'supervisor':
       return !(status === 'Waiting for Supervisor' && user?.id === evalData.appraiser);
     case 'supporter':

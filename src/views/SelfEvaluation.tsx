@@ -53,6 +53,19 @@ export default function SelfEvaluation() {
     return { status: 'none', evaluation: null };
   };
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'Returned to Employee':
+        return { label: 'Returned - Please Revise', color: 'bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400' };
+      case 'Waiting for Supervisor':
+        return { label: 'Under Supervisor Review', color: 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400' };
+      case 'Waiting for Supporter':
+        return { label: 'Under Supporter Review', color: 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400' };
+      default:
+        return { label: status, color: 'bg-slate-100 dark:bg-slate-500/20 text-slate-700 dark:text-slate-400' };
+    }
+  };
+
   const handlePositionSelect = async (position: string) => {
     const config = getPositionConfig(position);
     if (!config) {
@@ -246,9 +259,14 @@ export default function SelfEvaluation() {
                   </div>
                   {isActive && posStatus.evaluation && (
                     <div className="flex items-center gap-1.5 mt-2">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-bold">
-                        {posStatus.evaluation.status}
-                      </span>
+                      {(() => {
+                        const badge = getStatusBadge(posStatus.evaluation.status);
+                        return (
+                          <span className={cn("inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-bold", badge.color)}>
+                            {badge.label}
+                          </span>
+                        );
+                      })()}
                     </div>
                   )}
                   {isCompleted && (

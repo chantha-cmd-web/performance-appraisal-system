@@ -70,9 +70,22 @@ export const STATUS_LABELS: Record<string, { label: string, kh: string, color: s
   'Supervisor Completed': { label: 'Supervisor Completed', kh: 'វាយតម្លៃរួចរាល់', color: 'bg-purple-100 text-purple-700' },
   'Waiting for Supporter': { label: 'Waiting Supporter', kh: 'រង់ចាំអ្នកគាំទ្រ', color: 'bg-amber-100 text-amber-700' },
   'Supporter Completed': { label: 'Supporter Completed', kh: 'អ្នកគាំទ្រវាយតម្លៃរួចរាល់', color: 'bg-emerald-100 text-emerald-700' },
+  'Returned to Employee': { label: 'Returned', kh: 'ត្រូវបានផ្ញើត្រឡប់', color: 'bg-rose-100 text-rose-700' },
   'Approved': { label: 'Approved', kh: 'អនុម័តរួច', color: 'bg-green-100 text-green-700' },
   'Completed': { label: 'Completed', kh: 'បញ្ជប់', color: 'bg-green-100 text-green-700' }
 };
+
+export interface AppNotification {
+  id: string;
+  userId: string;
+  message: string;
+  khMessage: string;
+  type: 'info' | 'warning' | 'success' | 'action_required';
+  link: string;
+  evaluationId?: string;
+  read: boolean;
+  createdAt: string;
+}
 
 export const WEIGHTING_SCHEMES = [
   { id: 'campus_60_40', label: 'Direct Supervisor 60% (campus) / Supporter 40% (central)' },

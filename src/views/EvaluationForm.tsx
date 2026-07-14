@@ -10,8 +10,10 @@ import { cn } from '../lib/utils';
 import {
   canEditSelfEval, canEditSupervisorSection, canEditSupporterSection,
   canEditManagementSection, canEditAspSection, getNextStatus,
-  getVisibleColumns, calculateOverallScore, getWorkflowStage, isStageLocked
+  getVisibleColumns, calculateOverallScore, getWorkflowStage, isStageLocked,
+  canRejectEvaluation
 } from '../utils/rbac';
+import { sendStatusChangeNotification } from '../utils/notifications';
 
 export default function EvaluationForm() {
   const { token, user } = useAuth();
@@ -207,14 +209,15 @@ export default function EvaluationForm() {
   const canEditSupporter = canEditSupporterSection(user, { supporter: formData.supporter, status: formData.status }, isViewOnly);
   const canEditMgmt = canEditManagementSection(user, isViewOnly);
   const canEditAsp = canEditAspSection(user, isViewOnly);
+  const canReject = canRejectEvaluation(user, { appraiser: formData.appraiser, supporter: formData.supporter, status: formData.status });
 
   // ─── Status & Workflow ───
-  const nextStatus = (action: 'save' | 'submit') => getNextStatus(formData.status, action, cols.supporter);
+  const nextStatus = (action: 'save' | 'submit' | 'reject') => getNextStatus(formData.status, action, cols.supporter);
   const isCompleted = formData.status === 'Completed' || formData.status === 'Approved';
   const workflowStage = getWorkflowStage(formData.status);
 
   // ─── Submit Handler ───
-  const handleActionSubmit = async (e: React.FormEvent, action: 'save' | 'submit') => {
+  const handleActionSubmit = async (e: React.FormEvent, action: 'save' | 'submit' | 'reject') => {
     e.preventDefault();
     if (isViewOnly) return;
     setLoading(true);
@@ -229,6 +232,18 @@ export default function EvaluationForm() {
         })
       });
       if (!res.ok) throw new Error('Failed to submit evaluation');
+
+      // Send notification for status change
+      if (editId && token) {
+        await sendStatusChangeNotification(token, targetStatus, editId, {
+          employeeId: formData.employeeId,
+          employeeName: formData.employeeName,
+          appraiser: formData.appraiser,
+          supporter: formData.supporter,
+          position: formData.position,
+        }, user?.name || '');
+      }
+
       navigate('/dashboard');
     } catch (err) {
       console.error(err);
@@ -237,6 +252,11 @@ export default function EvaluationForm() {
   };
 
   const handleSubmit = (e: React.FormEvent) => handleActionSubmit(e, 'submit');
+  const handleReject = (e: React.FormEvent) => {
+    if (confirm('Are you sure you want to return this evaluation to the employee for revision?')) {
+      handleActionSubmit(e, 'reject');
+    }
+  };
 
   if (configLoading || profilesLoading || posConfigsLoading) {
     return (
@@ -258,7 +278,7 @@ export default function EvaluationForm() {
   ];
 
   const currentStepIdx = workflowSteps.findIndex(s => {
-    if (s.key === 'self') return workflowStage === 'Self-Evaluation';
+    if (s.key === 'self') return workflowStage === 'Self-Evaluation' || workflowStage === 'Returned for Revision';
     if (s.key === 'supervisor') return workflowStage === 'Supervisor Review';
     if (s.key === 'supporter') return workflowStage === 'Supporter Review';
     if (s.key === 'final') return workflowStage === 'Completed' || workflowStage === 'Approved';
@@ -301,6 +321,12 @@ export default function EvaluationForm() {
                 className="flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 glass-card rounded-2xl text-slate-700 dark:text-slate-300 font-bold text-sm transition-all active:scale-95 disabled:opacity-50">
                 Save as Draft
               </button>
+              {canReject && (
+                <button type="button" onClick={handleReject} disabled={loading}
+                  className="flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 bg-gradient-to-r from-rose-500 to-red-600 text-white font-bold text-sm rounded-2xl shadow-lg shadow-rose-500/25 transition-all active:scale-95 disabled:opacity-50">
+                  Return to Employee
+                </button>
+              )}
               <button type="submit" disabled={loading}
                 className="flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm rounded-2xl shadow-lg shadow-indigo-500/25 transition-all active:scale-95 disabled:opacity-50">
                 <Save size={18} />
@@ -493,13 +519,27 @@ export default function EvaluationForm() {
 
           {/* ─── RBAC Info Banner ─── */}
           {editId && !isViewOnly && !isCompleted && (
-            <div className="mt-4 p-4 rounded-2xl bg-amber-50/80 dark:bg-amber-500/5 border border-amber-200/50 dark:border-amber-500/15">
+            <div className={cn(
+              "mt-4 p-4 rounded-2xl border",
+              formData.status === 'Returned to Employee'
+                ? "bg-rose-50/80 dark:bg-rose-500/5 border-rose-200/50 dark:border-rose-500/15"
+                : "bg-amber-50/80 dark:bg-amber-500/5 border-amber-200/50 dark:border-amber-500/15"
+            )}>
               <div className="flex items-start gap-3">
-                <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
-                <div className="text-xs sm:text-sm font-medium text-amber-700 dark:text-amber-300">
-                  <span className="font-bold">Access Control:</span> You can only edit your assigned section.
-                  Self-evaluation scores are locked and read-only for all non-employee users.
-                  Status: <span className="font-bold">{formData.status}</span>
+                <AlertTriangle size={18} className={cn("shrink-0 mt-0.5", formData.status === 'Returned to Employee' ? "text-rose-500" : "text-amber-500")} />
+                <div className={cn("text-xs sm:text-sm font-medium", formData.status === 'Returned to Employee' ? "text-rose-700 dark:text-rose-300" : "text-amber-700 dark:text-amber-300")}>
+                  {formData.status === 'Returned to Employee' ? (
+                    <>
+                      <span className="font-bold">Returned for Revision:</span> This evaluation has been sent back to you.
+                      Please review the feedback, make necessary changes, and resubmit.
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-bold">Access Control:</span> You can only edit your assigned section.
+                      Self-evaluation scores are locked and read-only for all non-employee users.
+                    </>
+                  )}
+                  {' '}Status: <span className="font-bold">{formData.status}</span>
                 </div>
               </div>
             </div>
@@ -588,6 +628,12 @@ export default function EvaluationForm() {
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 glass-card rounded-2xl text-slate-700 dark:text-slate-300 font-bold text-sm transition-all active:scale-95 disabled:opacity-50">
               Draft
             </button>
+            {canReject && (
+              <button type="button" onClick={handleReject} disabled={loading}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-rose-500 to-red-600 text-white font-bold text-sm rounded-2xl shadow-lg shadow-rose-500/25 transition-all active:scale-95 disabled:opacity-50">
+                Return
+              </button>
+            )}
             <button type="submit" disabled={loading}
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 sm:px-8 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm rounded-2xl shadow-lg shadow-indigo-500/25 transition-all active:scale-95 disabled:opacity-50">
               <Save size={18} />
