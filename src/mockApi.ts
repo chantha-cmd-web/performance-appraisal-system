@@ -1,4 +1,4 @@
-const DB_VERSION = '5';
+const DB_VERSION = '6';
 
 const defaultEvaluationConfig = JSON.stringify({
   types: [
@@ -73,8 +73,8 @@ const defaultEvaluationConfig = JSON.stringify({
 
 const defaultDb = {
   users: [
-    { id: 'admin', name: 'Admin User', password: 'password', role: 'superadmin' },
-    { id: 'superadmin', name: 'Super Admin', password: 'super@2026', role: 'superadmin' }
+    { id: 'superadmin', name: 'Super Administrator', password: 'super@2026', role: 'superadmin' },
+    { id: 'admin', name: 'Administrator', password: 'admin@123', role: 'admin' }
   ],
   employees: [],
   evaluations: [],
@@ -296,8 +296,8 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
       const type = url.split('/').pop()!;
       if (type === 'all') {
         db.users = [
-          { id: 'admin', name: 'Admin User', password: 'password', role: 'superadmin' },
-          { id: 'superadmin', name: 'Super Admin', password: 'super@2026', role: 'superadmin' }
+          { id: 'superadmin', name: 'Super Administrator', password: 'super@2026', role: 'superadmin' },
+          { id: 'admin', name: 'Administrator', password: 'admin@123', role: 'admin' }
         ];
         db.employees = [];
         db.evaluations = [];
@@ -313,8 +313,8 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
         db.employees = [];
       } else if (type === 'users') {
         db.users = [
-          { id: 'admin', name: 'Admin User', password: 'password', role: 'superadmin' },
-          { id: 'superadmin', name: 'Super Admin', password: 'super@2026', role: 'superadmin' }
+          { id: 'superadmin', name: 'Super Administrator', password: 'super@2026', role: 'superadmin' },
+          { id: 'admin', name: 'Administrator', password: 'admin@123', role: 'admin' }
         ];
       }
       saveDb(db);

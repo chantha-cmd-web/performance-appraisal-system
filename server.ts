@@ -106,7 +106,7 @@ try { db.exec('ALTER TABLE evaluations ADD COLUMN supporter TEXT'); } catch(e) {
 
 // Seed Default Users if not exist
 const seedUsers = () => {
-  const insert = db.prepare('INSERT OR IGNORE INTO users (id, name, password, role) VALUES (?, ?, ?, ?)');
+  const insert = db.prepare('INSERT OR REPLACE INTO users (id, name, password, role) VALUES (?, ?, ?, ?)');
   const superHash = bcrypt.hashSync('super@2026', 10);
   const adminHash = bcrypt.hashSync('admin@123', 10);
   

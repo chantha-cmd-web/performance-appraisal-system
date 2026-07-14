@@ -7,6 +7,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSettings, useSelfEvalSettings } from '../hooks/useSettings';
 import { format } from 'date-fns';
 import { cn } from '../lib/utils';
+import { canEditSelfEval, canEditSupervisorSection, canEditSupporterSection, canEditManagementSection, getNextStatus } from '../utils/rbac';
 
 export default function EvaluationForm() {
   const { token, user } = useAuth();
@@ -225,27 +226,13 @@ export default function EvaluationForm() {
   };
 
   // Calculate permissions based on role and status
-  const isAdmin = user?.role === 'superadmin' || user?.role === 'admin';
-  const isEmployee = user?.id === formData.employeeId;
-  const isAppraiser = user?.id === formData.appraiser;
-  const isSupporter = user?.id === formData.supporter;
-  const isSupervisorRole = user?.role === 'supervisor';
-  const isSupporterRole = user?.role === 'supporter';
-
-  const canEditSelf = !isViewOnly && (isAdmin || (isEmployee && (formData.status === 'Draft' || formData.status === 'Self Evaluation Pending')));
-  const canEditSuper = !isViewOnly && (isAdmin || ((isAppraiser || isSupervisorRole) && formData.status === 'Waiting for Supervisor'));
-  const canEditSupporter = !isViewOnly && (isAdmin || ((isSupporter || isSupporterRole) && formData.status === 'Waiting for Supporter'));
-  const canEditMgmt = !isViewOnly && isAdmin;
+  const canEditSelf = canEditSelfEval(user, { employeeId: formData.employeeId, status: formData.status }, isViewOnly);
+  const canEditSuper = canEditSupervisorSection(user, { appraiser: formData.appraiser, status: formData.status }, isViewOnly);
+  const canEditSupporter = canEditSupporterSection(user, { supporter: formData.supporter, status: formData.status }, isViewOnly);
+  const canEditMgmt = canEditManagementSection(user, isViewOnly);
   
   // Submit actions handling
-  const nextStatus = (action: 'save' | 'submit') => {
-    if (action === 'save') return formData.status;
-    
-    if (formData.status === 'Draft' || formData.status === 'Self Evaluation Pending') return 'Waiting for Supervisor';
-    if (formData.status === 'Waiting for Supervisor') return showSupporter ? 'Waiting for Supporter' : 'Completed';
-    if (formData.status === 'Waiting for Supporter') return 'Completed';
-    return formData.status;
-  };
+  const nextStatus = (action: 'save' | 'submit') => getNextStatus(formData.status, action, showSupporter);
 
   const handleActionSubmit = async (e: React.FormEvent, action: 'save' | 'submit') => {
     e.preventDefault();

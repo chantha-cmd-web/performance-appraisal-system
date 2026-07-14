@@ -8,6 +8,7 @@ import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import * as xlsx from 'xlsx';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { filterEvaluationsByRole, canSeeEvaluatorColumn, canEditEvaluation, canDeleteEvaluation, canEvaluate } from '../utils/rbac';
 
 export default function Dashboard() {
   const { token, user } = useAuth();
@@ -29,7 +30,7 @@ export default function Dashboard() {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      setEvals(data);
+      setEvals(filterEvaluationsByRole(data, user));
     } catch (err) {
       console.error(err);
     } finally {
@@ -200,7 +201,7 @@ export default function Dashboard() {
                     <th className="px-6 py-4 text-right">ពិន្ទុសរុប<br/><span className="text-xs font-normal">Overall</span></th>
                     <th className="px-6 py-4 text-center">ចំណាត់ថ្នាក់<br/><span className="text-xs font-normal">Rating</span></th>
                     <th className="px-6 py-4 text-center">ស្ថានភាព<br/><span className="text-xs font-normal">Status</span></th>
-                    {user?.role === 'superadmin' && <th className="px-6 py-4">អ្នកវាយតម្លៃ<br/><span className="text-xs font-normal">Evaluator</span></th>}
+                    {canSeeEvaluatorColumn(user) && <th className="px-6 py-4">អ្នកវាយតម្លៃ<br/><span className="text-xs font-normal">Evaluator</span></th>}
                     <th className="px-6 py-4 text-right print:hidden">សកម្មភាព<br/><span className="text-xs font-normal">Actions</span></th>
                   </tr>
                 </thead>
@@ -253,7 +254,7 @@ export default function Dashboard() {
                               </div>
                             )}
                           </td>
-                          {user?.role === 'superadmin' && (
+                          {canSeeEvaluatorColumn(user) && (
                             <td className="px-6 py-4 text-xs font-medium text-slate-500 dark:text-slate-400">
                               {evalRecord.createdByName}
                             </td>
@@ -267,20 +268,9 @@ export default function Dashboard() {
                               </button>
                               
                               {(() => {
-                                const isCreator = evalRecord.createdBy === user?.id;
-                                const isAppraiser = evalRecord.appraiser === user?.id;
-                                const isSupporter = evalRecord.supporter === user?.id;
-                                const status = evalRecord.status || 'Draft';
-
-                                const isAdmin = user?.role === 'superadmin' || user?.role === 'admin';
-                                const canEdit = isAdmin || isCreator ||
-                                  (isAppraiser && status === 'Waiting for Supervisor') ||
-                                  (isSupporter && status === 'Waiting for Supporter');
-
-                                const canDelete = isAdmin || isCreator;
-
-                                const showEvaluate = (isAppraiser && status === 'Waiting for Supervisor') ||
-                                  (isSupporter && status === 'Waiting for Supporter');
+                                const canEdit = canEditEvaluation(evalRecord, user);
+                                const canDelete = canDeleteEvaluation(evalRecord, user);
+                                const showEvaluate = canEvaluate(evalRecord, user);
 
                                 return (
                                   <>

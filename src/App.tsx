@@ -14,10 +14,18 @@ import CriteriaManagement from './views/CriteriaManagement';
 import SelfEvalCriteriaManagement from './views/SelfEvalCriteriaManagement';
 import AuditLogs from './views/AuditLogs';
 import DataManagement from './views/DataManagement';
+import { canAccessAdminPage } from './utils/rbac';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+};
+
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (!canAccessAdminPage(user)) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 };
 
@@ -33,13 +41,13 @@ export default function App() {
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="evaluation" element={<EvaluationForm />} />
-              <Route path="users" element={<UserManagement />} />
-              <Route path="employees" element={<EmployeeProfiles />} />
-              <Route path="hr-settings" element={<HRSettings />} />
-              <Route path="settings" element={<CriteriaManagement />} />
-              <Route path="self-eval-settings" element={<SelfEvalCriteriaManagement />} />
-              <Route path="audit-logs" element={<AuditLogs />} />
-              <Route path="data-management" element={<DataManagement />} />
+              <Route path="users" element={<AdminRoute><UserManagement /></AdminRoute>} />
+              <Route path="employees" element={<AdminRoute><EmployeeProfiles /></AdminRoute>} />
+              <Route path="hr-settings" element={<AdminRoute><HRSettings /></AdminRoute>} />
+              <Route path="settings" element={<AdminRoute><CriteriaManagement /></AdminRoute>} />
+              <Route path="self-eval-settings" element={<AdminRoute><SelfEvalCriteriaManagement /></AdminRoute>} />
+              <Route path="audit-logs" element={<AdminRoute><AuditLogs /></AdminRoute>} />
+              <Route path="data-management" element={<AdminRoute><DataManagement /></AdminRoute>} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
@@ -48,4 +56,3 @@ export default function App() {
     </ThemeProvider>
   );
 }
-
