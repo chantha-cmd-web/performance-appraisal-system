@@ -197,7 +197,7 @@ export default function SelfEvaluation() {
             <button
               key={position}
               onClick={() => handlePositionSelect(position)}
-              disabled={!hasConfig || isCreating}
+              disabled={isCreating}
               className={cn(
                 "group relative text-left p-5 sm:p-6 rounded-2xl border-2 transition-all duration-200",
                 isActive
@@ -206,7 +206,7 @@ export default function SelfEvaluation() {
                     ? "border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-500/5"
                     : hasConfig
                       ? "border-slate-200/60 dark:border-white/[0.08] bg-white/60 dark:bg-white/[0.03] hover:border-indigo-300 dark:hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/10 cursor-pointer"
-                      : "border-slate-100 dark:border-white/[0.04] bg-slate-50/50 dark:bg-white/[0.01] opacity-50 cursor-not-allowed"
+                      : "border-dashed border-slate-300 dark:border-white/[0.08] bg-white/40 dark:bg-white/[0.02] hover:border-indigo-300 dark:hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/10 cursor-pointer opacity-70 hover:opacity-100"
               )}
             >
               <div className="flex items-start justify-between mb-3">

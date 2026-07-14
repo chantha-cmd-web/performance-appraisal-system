@@ -64,38 +64,44 @@ export function canEvaluate(ev: Evaluation, user: User | null): boolean {
 }
 
 // ─── EvaluationForm Section Editing Permissions ───
-// Admin CANNOT edit Self-Eval scores. Only the employee can edit their own self-eval,
-// and only while the status is Draft or Self Evaluation Pending.
+// Superadmin can edit ALL sections. Employee can edit self-eval only during Draft/Self Eval Pending.
+// Supervisor can edit supervisor section only during "Waiting for Supervisor".
+// Supporter can edit supporter section only during "Waiting for Supporter".
 export function canEditSelfEval(
   user: User | null,
   evalData: { employeeId: string; status: string },
   isViewOnly: boolean
 ): boolean {
   if (isViewOnly) return false;
+  // Superadmin has full access to everything
+  if (isSuperAdmin(user)) return true;
   // Self-eval is only editable by the employee themselves, during Draft or Self Eval Pending
   if (user?.id === evalData.employeeId && (evalData.status === 'Draft' || evalData.status === 'Self Evaluation Pending')) return true;
-  // Admin/Supervisor/Supporter can NEVER edit self-eval scores
   return false;
 }
 
-// Supervisor section: only the assigned appraiser can edit, only when status is "Waiting for Supervisor"
+// Supervisor section: superadmin can always edit; assigned appraiser can edit during "Waiting for Supervisor"
 export function canEditSupervisorSection(
   user: User | null,
   evalData: { appraiser: string; status: string },
   isViewOnly: boolean
 ): boolean {
   if (isViewOnly) return false;
+  // Superadmin has full access
+  if (isSuperAdmin(user)) return true;
   if (evalData.appraiser === user?.id && evalData.status === 'Waiting for Supervisor') return true;
   return false;
 }
 
-// Supporter section: only the assigned supporter can edit, only when status is "Waiting for Supporter"
+// Supporter section: superadmin can always edit; assigned supporter can edit during "Waiting for Supporter"
 export function canEditSupporterSection(
   user: User | null,
   evalData: { supporter: string; status: string },
   isViewOnly: boolean
 ): boolean {
   if (isViewOnly) return false;
+  // Superadmin has full access
+  if (isSuperAdmin(user)) return true;
   if (evalData.supporter === user?.id && evalData.status === 'Waiting for Supporter') return true;
   return false;
 }
@@ -222,20 +228,18 @@ export function isStageLocked(
   // If completed/approved, everything is locked
   if (status === 'Completed' || status === 'Approved') return true;
 
+  // Superadmin has full access to all stages (except completed/approved)
+  if (isSuperAdmin(user)) return false;
+
   switch (stage) {
     case 'self':
-      // Self-eval is locked once we move past Draft/Self Eval Pending
-      // OR if the current user is not the employee
       return status !== 'Draft' && status !== 'Self Evaluation Pending';
     case 'supervisor':
-      // Supervisor section only editable when status is "Waiting for Supervisor" AND user is the appraiser
       return !(status === 'Waiting for Supervisor' && user?.id === evalData.appraiser);
     case 'supporter':
-      // Supporter section only editable when status is "Waiting for Supporter" AND user is the supporter
       return !(status === 'Waiting for Supporter' && user?.id === evalData.supporter);
     case 'management':
     case 'asp':
-      // Management/ASP sections are editable by admin when status is not completed
       return status === 'Completed' || status === 'Approved' || !isAdmin(user);
     default:
       return true;
