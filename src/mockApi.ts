@@ -1,4 +1,4 @@
-const DB_VERSION = '8';
+const DB_VERSION = '9';
 
 const defaultEvaluationConfig = JSON.stringify({
   types: [
@@ -302,6 +302,13 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
       }
     }
 
+    // Users Reset All
+    if (url.includes('/api/users/reset') && method === 'POST') {
+      db.users = defaultDb.users.map(u => ({ ...u }));
+      saveDb(db);
+      return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
     // Users
     if (url.includes('/api/users')) {
       const id = url.split('/').pop();
@@ -390,10 +397,7 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
     if (url.includes('/api/data/reset/') && method === 'POST') {
       const type = url.split('/').pop()!;
       if (type === 'all') {
-        db.users = [
-          { id: 'superadmin', name: 'Super Administrator', password: 'super@2026', role: 'superadmin' },
-          { id: 'admin', name: 'Administrator', password: 'admin@123', role: 'admin' }
-        ];
+        db.users = defaultDb.users.map(u => ({ ...u }));
         db.employees = [];
         db.evaluations = [];
         db.auditLogs = [];
@@ -409,10 +413,7 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
       } else if (type === 'employees') {
         db.employees = [];
       } else if (type === 'users') {
-        db.users = [
-          { id: 'superadmin', name: 'Super Administrator', password: 'super@2026', role: 'superadmin' },
-          { id: 'admin', name: 'Administrator', password: 'admin@123', role: 'admin' }
-        ];
+        db.users = defaultDb.users.map(u => ({ ...u }));
       }
       saveDb(db);
       return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });

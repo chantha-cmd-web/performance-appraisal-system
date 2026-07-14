@@ -2,7 +2,7 @@ import { apiFetch } from '../mockApi';
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { User } from '../types';
-import { Shield, ShieldAlert, User as UserIcon, Activity, Clock, X, Trash2, Edit2, Plus, Key, Eye, EyeOff } from 'lucide-react';
+import { Shield, ShieldAlert, User as UserIcon, Activity, Clock, X, Trash2, Edit2, Plus, Key, Eye, EyeOff, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface AuditLog {
@@ -141,6 +141,25 @@ export default function UserManagement() {
     }
   };
 
+  const handleResetAllUsers = async () => {
+    if (!window.confirm('This will reset ALL user accounts to defaults (superadmin, admin, demo users). Any custom users will be removed and passwords restored. Continue?')) return;
+    try {
+      const res = await apiFetch('/api/users/reset', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert('All users have been reset to defaults.');
+        fetchUsers();
+      } else {
+        alert(data.error || 'Failed to reset users');
+      }
+    } catch (err) {
+      alert('An error occurred');
+    }
+  };
+
   if (user?.role !== 'superadmin') {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -179,9 +198,14 @@ export default function UserManagement() {
               <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Administrator Accounts</h2>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage system access and roles.</p>
             </div>
-            <button onClick={handleOpenAdd} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm transition-colors text-sm">
-              <Plus size={16} /> Add User
-            </button>
+            <div className="flex items-center gap-3">
+              <button onClick={handleResetAllUsers} className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow-sm transition-colors text-sm">
+                <RotateCcw size={16} /> Reset All Users
+              </button>
+              <button onClick={handleOpenAdd} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm transition-colors text-sm">
+                <Plus size={16} /> Add User
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
