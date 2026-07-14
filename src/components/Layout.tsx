@@ -4,7 +4,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Menu, X, LayoutDashboard, FileEdit, Users, LogOut, Settings, Sun, Moon, ShieldAlert } from 'lucide-react';
+import { Menu, X, LayoutDashboard, FileEdit, Users, LogOut, Settings, Sun, Moon, ShieldAlert, ClipboardCheck } from 'lucide-react';
 import { cn } from '../lib/utils';
 import NotificationsBell from './NotificationsBell';
 
@@ -71,6 +71,8 @@ export default function Layout() {
         <nav className="flex-1 space-y-1 px-4 py-4 overflow-y-auto">
           <SidebarLink to="/dashboard" icon={<LayoutDashboard size={20} />} label="Dashboard" isOpen={isOpen} />
 
+          <SidebarLink to="/self-evaluation" icon={<ClipboardCheck size={20} />} label="Self Evaluation" isOpen={isOpen} />
+
           <SidebarLink to="/evaluation" icon={<FileEdit size={20} />} label="New Evaluation" isOpen={isOpen} />
 
           {user.role === 'superadmin' && (
@@ -88,6 +90,8 @@ export default function Layout() {
               <SidebarLink to="/hr-settings" icon={<Settings size={20} />} label="HR Settings" isOpen={isOpen} />
 
               <SidebarLink to="/settings" icon={<Settings size={20} />} label="Criteria & Evaluators" isOpen={isOpen} />
+
+              <SidebarLink to="/position-forms" icon={<ClipboardCheck size={20} />} label="Position Forms" isOpen={isOpen} />
 
               <SidebarLink to="/self-eval-settings" icon={<FileEdit size={20} />} label="Self Evaluation" isOpen={isOpen} />
 

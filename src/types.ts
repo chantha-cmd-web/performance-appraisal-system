@@ -81,6 +81,42 @@ export const WEIGHTING_SCHEMES = [
   { id: 'central_100', label: 'Direct Supervisor 100% (central)' }
 ];
 
+export const PREDEFINED_POSITIONS = [
+  'Management', 'Central Officer', 'Supervisor', 'HR', 'Administrator',
+  'Registrar', 'Accountant', 'Stock Controller', 'Uniform Seller',
+  'Customer Service', 'Student Affairs', 'Nurse', 'Laboratory Assistant',
+  'Librarian', 'GEP Officer', 'Teaching Assistant (TA)', 'Nanny', 'Discipline Officer'
+];
+
+export interface PositionSection {
+  id: string;
+  name: string;
+  khName: string;
+  weight: number;
+  displayOrder: number;
+  status: 'active' | 'inactive';
+}
+
+export interface PositionCriterion {
+  id: number;
+  sectionId: string;
+  kh: string;
+  en: string;
+  khDesc: string;
+  desc: string;
+  max: number;
+  displayOrder: number;
+  status: 'active' | 'inactive';
+}
+
+export interface PositionFormConfig {
+  id: string;
+  position: string;
+  weightingScheme: string;
+  sections: PositionSection[];
+  criteria: PositionCriterion[];
+}
+
 export interface CriteriaDefinition {
   id: number;
   kh: string;

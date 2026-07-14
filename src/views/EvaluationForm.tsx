@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { CriteriaScore, PeerFeedback, STATUS_LABELS } from '../types';
 import { Save, Plus, Trash2, Printer, Lock, Unlock, CheckCircle2, Circle, AlertTriangle } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useSettings, useSelfEvalSettings } from '../hooks/useSettings';
+import { useSettings, useSelfEvalSettings, usePositionFormConfigs } from '../hooks/useSettings';
 import { format } from 'date-fns';
 import { cn } from '../lib/utils';
 import {
@@ -22,6 +22,7 @@ export default function EvaluationForm() {
 
   const { config, loading: configLoading } = useSettings();
   const { profiles, loading: profilesLoading } = useSelfEvalSettings();
+  const { configs: positionConfigs, loading: posConfigsLoading } = usePositionFormConfigs();
   const [loading, setLoading] = useState(false);
   const [initialLoad, setInitialLoad] = useState(!!editId);
   const [formData, setFormData] = useState({
@@ -100,11 +101,34 @@ export default function EvaluationForm() {
     }) || null;
   }, [profiles, formData.department, formData.campus, formData.position, formData.category, formData.evaluationType, formData.evalPeriod]);
 
+  // Check if there's a position-based form config for this evaluation's position
+  const positionFormConfig = useMemo(() => {
+    if (!positionConfigs || !formData.position) return null;
+    return positionConfigs.find(c => c.position === formData.position) || null;
+  }, [positionConfigs, formData.position]);
+
   const currentCriteria = useMemo(() => {
-    return matchedProfile?.criteria && matchedProfile.criteria.length > 0
-      ? matchedProfile.criteria
-      : config?.criteriaSets[formData.evaluationType] || [];
-  }, [matchedProfile, config, formData.evaluationType]);
+    // Priority 1: Position-based form config (used by self-evaluation flow)
+    if (positionFormConfig && positionFormConfig.criteria.length > 0) {
+      return positionFormConfig.criteria
+        .filter(c => c.status === 'active')
+        .map(c => ({
+          id: c.id,
+          kh: c.kh,
+          khDesc: c.khDesc,
+          en: c.en,
+          desc: c.desc,
+          max: c.max,
+          sectionId: c.sectionId
+        }));
+    }
+    // Priority 2: Matched self-eval profile
+    if (matchedProfile?.criteria && matchedProfile.criteria.length > 0) {
+      return matchedProfile.criteria;
+    }
+    // Priority 3: Evaluation type criteria from config
+    return config?.criteriaSets[formData.evaluationType] || [];
+  }, [positionFormConfig, matchedProfile, config, formData.evaluationType]);
 
   useEffect(() => {
     if (!editId && !initialLoad && currentCriteria.length > 0 && criteriaScores.length === 0) {
@@ -214,7 +238,7 @@ export default function EvaluationForm() {
 
   const handleSubmit = (e: React.FormEvent) => handleActionSubmit(e, 'submit');
 
-  if (configLoading || profilesLoading) {
+  if (configLoading || profilesLoading || posConfigsLoading) {
     return (
       <div className="flex items-center justify-center p-16">
         <div className="flex flex-col items-center gap-3">
@@ -361,7 +385,9 @@ export default function EvaluationForm() {
         {/* ─── Criteria Scoring Table ─── */}
         <div className="p-4 sm:p-8">
           {(() => {
-            const sections = config?.sections?.[formData.evaluationType] || [];
+            const sections = positionFormConfig
+              ? positionFormConfig.sections.filter(s => s.status === 'active').sort((a, b) => a.displayOrder - b.displayOrder).map(s => ({ id: s.id, name: s.name, khName: s.khName }))
+              : config?.sections?.[formData.evaluationType] || [];
             const shownIds = new Set<number>();
             const allBlocks: React.ReactNode[] = [];
 

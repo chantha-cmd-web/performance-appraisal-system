@@ -1,4 +1,4 @@
-const DB_VERSION = '6';
+const DB_VERSION = '7';
 
 const defaultEvaluationConfig = JSON.stringify({
   types: [
@@ -82,7 +82,8 @@ const defaultDb = {
   settings: {
     evaluation_config: defaultEvaluationConfig,
     self_eval_profiles: '[]',
-    hr_profiles: '[]'
+    hr_profiles: '[]',
+    position_form_configs: '[]'
   }
 };
 
@@ -306,6 +307,7 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
         db.settings.evaluation_config = defaultEvaluationConfig;
         db.settings.self_eval_profiles = '[]';
         db.settings.hr_profiles = '[]';
+        db.settings.position_form_configs = '[]';
         }
       } else if (type === 'evaluations') {
         db.evaluations = [];

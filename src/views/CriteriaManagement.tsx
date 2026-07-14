@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings, EvaluationConfig, Criterion, CriterionSection, EvaluationType, WeightingScheme } from '../hooks/useSettings';
 import { Save, Plus, Trash2, Settings, List, PlusCircle, ShieldAlert, ChevronDown, ChevronRight, FolderOpen, GripVertical } from 'lucide-react';
+import { PREDEFINED_POSITIONS } from '../types';
 
 export default function CriteriaManagement() {
   const { user } = useAuth();
@@ -12,7 +13,7 @@ export default function CriteriaManagement() {
   const [saving, setSaving] = useState(false);
   const [localConfig, setLocalConfig] = useState<EvaluationConfig | null>(null);
   const [promptDialog, setPromptDialog] = useState<{ isOpen: boolean, type: 'type' | 'weighting', value: string, title: string, placeholder: string }>({ isOpen: false, type: 'type', value: '', title: '', placeholder: '' });
-  const [sectionDialog, setSectionDialog] = useState<{ isOpen: boolean, editId?: string, name: string, khName: string }>({ isOpen: false, name: '', khName: '' });
+  const [sectionDialog, setSectionDialog] = useState<{ isOpen: boolean, editId?: string, name: string, khName: string, weight: number, assignedPositions: string[] }>({ isOpen: false, name: '', khName: '', weight: 50, assignedPositions: [] });
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
   React.useEffect(() => {
@@ -139,11 +140,11 @@ export default function CriteriaManagement() {
   };
 
   const openAddSection = () => {
-    setSectionDialog({ isOpen: true, name: '', khName: '' });
+    setSectionDialog({ isOpen: true, name: '', khName: '', weight: 50, assignedPositions: [] });
   };
 
   const openEditSection = (section: CriterionSection) => {
-    setSectionDialog({ isOpen: true, editId: section.id, name: section.name, khName: section.khName });
+    setSectionDialog({ isOpen: true, editId: section.id, name: section.name, khName: section.khName, weight: section.weight || 50, assignedPositions: section.assignedPositions || [] });
   };
 
   const handleSectionSubmit = (e: React.FormEvent) => {
@@ -158,11 +159,11 @@ export default function CriteriaManagement() {
     if (sectionDialog.editId) {
       const idx = typeSections.findIndex(s => s.id === sectionDialog.editId);
       if (idx >= 0) {
-        typeSections[idx] = { ...typeSections[idx], name, khName };
+        typeSections[idx] = { ...typeSections[idx], name, khName, weight: sectionDialog.weight, assignedPositions: sectionDialog.assignedPositions };
       }
     } else {
       const id = 'section_' + Date.now();
-      typeSections.push({ id, name, khName });
+      typeSections.push({ id, name, khName, weight: sectionDialog.weight, displayOrder: typeSections.length, status: 'active', assignedPositions: sectionDialog.assignedPositions });
     }
     sections[selectedType] = typeSections;
     setLocalConfig({ ...localConfig, sections });
@@ -437,7 +438,7 @@ export default function CriteriaManagement() {
       {/* Section Dialog */}
       {sectionDialog.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 w-full max-w-md overflow-hidden">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 w-full max-w-lg overflow-hidden">
             <div className="p-6 border-b border-slate-100 dark:border-slate-700">
               <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{sectionDialog.editId ? 'Edit Section' : 'Add New Section'}</h2>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Organize criteria into named groups</p>
@@ -445,38 +446,55 @@ export default function CriteriaManagement() {
             <form onSubmit={handleSectionSubmit} className="p-6 space-y-5">
               <div>
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">English Name *</label>
-                <input
-                  autoFocus
-                  type="text"
-                  required
+                <input autoFocus type="text" required
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500 font-medium text-slate-800 dark:text-slate-100 outline-none transition-all"
                   placeholder="e.g. Work Performance"
                   value={sectionDialog.name}
-                  onChange={e => setSectionDialog({ ...sectionDialog, name: e.target.value })}
-                />
+                  onChange={e => setSectionDialog({ ...sectionDialog, name: e.target.value })} />
               </div>
               <div>
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">ឈ្មោះជាភាសាខ្មែរ / Khmer Name</label>
-                <input
-                  type="text"
+                <input type="text"
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500 font-medium text-slate-800 dark:text-slate-100 outline-none transition-all"
                   placeholder="e.g. សមិទ្ធផលការងារ"
                   value={sectionDialog.khName}
-                  onChange={e => setSectionDialog({ ...sectionDialog, khName: e.target.value })}
-                />
+                  onChange={e => setSectionDialog({ ...sectionDialog, khName: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Section Weight (%)</label>
+                <input type="number" min="0" max="100"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500 font-medium text-slate-800 dark:text-slate-100 outline-none transition-all text-center"
+                  value={sectionDialog.weight}
+                  onChange={e => setSectionDialog({ ...sectionDialog, weight: parseInt(e.target.value) || 0 })} />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Assigned Positions / តួនាទីដែលបានកំណត់</label>
+                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                  {PREDEFINED_POSITIONS.map(pos => (
+                    <label key={pos} className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer hover:bg-white dark:hover:bg-slate-800 p-1.5 rounded-lg transition-colors">
+                      <input type="checkbox"
+                        className="rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500"
+                        checked={sectionDialog.assignedPositions.includes(pos)}
+                        onChange={e => {
+                          const updated = e.target.checked
+                            ? [...sectionDialog.assignedPositions, pos]
+                            : sectionDialog.assignedPositions.filter(p => p !== pos);
+                          setSectionDialog({ ...sectionDialog, assignedPositions: updated });
+                        }} />
+                      <span className="truncate text-xs">{pos}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Leave empty for all positions</p>
               </div>
               <div className="flex gap-4 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setSectionDialog({ isOpen: false, name: '', khName: '' })}
-                  className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-colors"
-                >
+                <button type="button"
+                  onClick={() => setSectionDialog({ isOpen: false, name: '', khName: '', weight: 50, assignedPositions: [] })}
+                  className="flex-1 px-4 py-3 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-colors">
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors"
-                >
+                <button type="submit"
+                  className="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors">
                   {sectionDialog.editId ? 'Save Changes' : 'Add Section'}
                 </button>
               </div>
@@ -498,6 +516,15 @@ function CriterionCard({ criterion, idx, updateCriterion, deleteCriterion, moveC
   sections: CriterionSection[];
   selectedSectionId?: string;
 }) {
+  const assignedPositions = (criterion as any).assignedPositions || [];
+
+  const togglePosition = (pos: string) => {
+    const updated = assignedPositions.includes(pos)
+      ? assignedPositions.filter((p: string) => p !== pos)
+      : [...assignedPositions, pos];
+    updateCriterion(idx, 'assignedPositions' as any, updated);
+  };
+
   return (
     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 relative group hover:border-indigo-200 dark:hover:border-indigo-500/50 hover:shadow-sm transition-all">
       <button 
@@ -537,6 +564,28 @@ function CriterionCard({ criterion, idx, updateCriterion, deleteCriterion, moveC
         <div className="md:col-span-1">
           <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">ពិន្ទុអតិបរមា<br/><span className="text-[10px] font-normal">Max Score</span></label>
           <input type="number" min="1" max="100" className="w-full px-4 py-2 bg-transparent border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-900 dark:text-slate-100" value={criterion.max || 10} onChange={e => updateCriterion(idx, 'max', parseInt(e.target.value) || 10)} />
+        </div>
+        <div className="md:col-span-2">
+          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Assigned Positions<br/><span className="text-[10px] font-normal">តួនាទីដែលបានកំណត់ (empty = all)</span></label>
+          <div className="flex flex-wrap gap-1.5">
+            {assignedPositions.length > 0 ? assignedPositions.map((pos: string) => (
+              <span key={pos} className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold rounded-full">
+                {pos}
+                <button onClick={() => togglePosition(pos)} className="hover:text-red-500">×</button>
+              </span>
+            )) : (
+              <span className="text-[10px] text-slate-400 italic">All positions</span>
+            )}
+          </div>
+          <div className="mt-1.5">
+            <select className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-medium text-slate-600 dark:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-500"
+              value="" onChange={e => { if (e.target.value) { togglePosition(e.target.value); } }}>
+              <option value="">+ Add position...</option>
+              {PREDEFINED_POSITIONS.filter(p => !assignedPositions.includes(p)).map(p => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
     </div>

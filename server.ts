@@ -360,6 +360,27 @@ app.post('/api/settings/hr_profiles', authenticateToken, requireSuperAdmin, (req
   }
 });
 
+app.get('/api/settings/position_form_configs', authenticateToken, (req, res) => {
+  const row = db.prepare('SELECT value FROM app_settings WHERE key = ?').get('position_form_configs') as any;
+  if (row) {
+    res.json(JSON.parse(row.value));
+  } else {
+    res.json([]);
+  }
+});
+
+app.post('/api/settings/position_form_configs', authenticateToken, requireSuperAdmin, (req, res) => {
+  const data = req.body;
+  try {
+    db.prepare('INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
+      .run('position_form_configs', JSON.stringify(data));
+    logAudit(req.user!.id, req.user!.name, 'update_settings', 'Updated position-based form configurations');
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/notifications', authenticateToken, (req, res) => {
   try {
     const notifications: { id: string, message: string, type: string, link: string }[] = [];
@@ -579,7 +600,7 @@ app.post('/api/evaluations', authenticateToken, (req, res) => {
       }
     }
 
-    logAudit(createdBy, createdByName, 'create_evaluation', `Created evaluation for employee ID: ${data.employeeId} (${data.employeeName})`);
+    logAudit(createdBy, createdByName, 'create_evaluation', `Created evaluation for employee ID: ${data.employeeId} (${data.employeeName}) - Position: ${data.position || 'N/A'}`);
 
     res.json({ success: true, id: evalId });
   } catch (error: any) {
@@ -639,7 +660,7 @@ app.put('/api/evaluations/:id', authenticateToken, (req, res) => {
       }
     })();
 
-    logAudit(req.user!.id, req.user!.name, 'update_evaluation', `Updated evaluation #${id} for ${data.employeeName}`);
+    logAudit(req.user!.id, req.user!.name, 'update_evaluation', `Updated evaluation #${id} for ${data.employeeName} (Status: ${data.status || 'Draft'}, Role: ${req.user!.role})`);
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
