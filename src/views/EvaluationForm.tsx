@@ -14,6 +14,8 @@ import {
   canRejectEvaluation, canReopenEvaluation, isAdmin
 } from '../utils/rbac';
 import { sendStatusChangeNotification } from '../utils/notifications';
+import { generatePdfReport } from '../utils/pdfReport';
+import toast from 'react-hot-toast';
 
 export default function EvaluationForm() {
   const { token, user } = useAuth();
@@ -320,9 +322,17 @@ export default function EvaluationForm() {
         </div>
         <div className="flex items-center gap-3">
           {isViewOnly && (
-            <button type="button" onClick={() => window.print()}
+            <button type="button" onClick={async () => {
+              try {
+                const cfgRes = await apiFetch('/api/settings/position_form_configs', { headers: { Authorization: `Bearer ${token}` } });
+                const cfgs = await cfgRes.json();
+                const cfg = Array.isArray(cfgs) ? cfgs.find((c: any) => c.position === formData.position) : null;
+                await generatePdfReport({ evaluation: formData as any, positionFormConfig: cfg });
+                toast.success('PDF exported');
+              } catch { toast.error('Failed to generate PDF'); }
+            }}
               className="flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 glass-card rounded-2xl text-slate-700 dark:text-slate-300 font-bold text-sm transition-all active:scale-95 hover:bg-white/80 dark:hover:bg-white/10">
-              <Printer size={18} /> Print PDF
+              <Printer size={18} /> Export PDF
             </button>
           )}
           {!isViewOnly && (!isCompleted || superadminEdit) && (

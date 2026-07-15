@@ -21,6 +21,8 @@ import {
   canDeleteEvaluation, canEvaluate
 } from '../utils/rbac';
 import { motion, AnimatePresence } from 'motion/react';
+import { generatePdfReport } from '../utils/pdfReport';
+import toast from 'react-hot-toast';
 
 type SortKey = 'employeeName' | 'employeeId' | 'campus' | 'position' | 'totalSelf' | 'totalSuper' | 'overallScore' | 'status' | 'createdByName' | 'reviewDate';
 type SortDir = 'asc' | 'desc';
@@ -192,13 +194,50 @@ export default function Dashboard() {
     URL.revokeObjectURL(url);
   };
 
-  const handlePrint = () => {
-    const isDark = document.documentElement.classList.contains('dark');
-    if (isDark) document.documentElement.classList.remove('dark');
-    setTimeout(() => {
-      window.print();
-      if (isDark) document.documentElement.classList.add('dark');
-    }, 100);
+  const handlePrint = async () => {
+    if (filteredEvals.length === 0) {
+      toast.error('No evaluations to export');
+      return;
+    }
+    if (filteredEvals.length === 1) {
+      const ev = filteredEvals[0];
+      try {
+        const empRes = await apiFetch(`/api/employees?id=${ev.employeeId}`, { headers: { Authorization: `Bearer ${token}` } });
+        const emp = await empRes.json();
+        const cfgRes = await apiFetch('/api/settings/position_form_configs', { headers: { Authorization: `Bearer ${token}` } });
+        const cfgs = await cfgRes.json();
+        const cfg = Array.isArray(cfgs) ? cfgs.find((c: any) => c.position === ev.position) : null;
+        await generatePdfReport({ evaluation: ev, positionFormConfig: cfg });
+        toast.success('PDF exported successfully');
+      } catch (err) {
+        toast.error('Failed to generate PDF');
+      }
+      return;
+    }
+    toast(`Generating PDF for ${filteredEvals.length} evaluations...`, { icon: '📄' });
+    for (const ev of filteredEvals) {
+      try {
+        const empRes = await apiFetch(`/api/employees?id=${ev.employeeId}`, { headers: { Authorization: `Bearer ${token}` } });
+        const emp = await empRes.json();
+        const cfgRes = await apiFetch('/api/settings/position_form_configs', { headers: { Authorization: `Bearer ${token}` } });
+        const cfgs = await cfgRes.json();
+        const cfg = Array.isArray(cfgs) ? cfgs.find((c: any) => c.position === ev.position) : null;
+        await generatePdfReport({ evaluation: ev, positionFormConfig: cfg });
+      } catch { /* skip failed */ }
+    }
+    toast.success('All PDFs exported');
+  };
+
+  const handlePrintSingle = async (ev: Evaluation) => {
+    try {
+      const cfgRes = await apiFetch('/api/settings/position_form_configs', { headers: { Authorization: `Bearer ${token}` } });
+      const cfgs = await cfgRes.json();
+      const cfg = Array.isArray(cfgs) ? cfgs.find((c: any) => c.position === ev.position) : null;
+      await generatePdfReport({ evaluation: ev, positionFormConfig: cfg });
+      toast.success('PDF exported');
+    } catch {
+      toast.error('Failed to generate PDF');
+    }
   };
 
   const handleBulkTelegram = () => {
@@ -604,6 +643,13 @@ export default function Dashboard() {
                                   title="View"
                                 >
                                   <Eye size={16} />
+                                </button>
+                                <button
+                                  onClick={() => handlePrintSingle(ev)}
+                                  className="p-2 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-all"
+                                  title="Export PDF"
+                                >
+                                  <FileDown size={16} />
                                 </button>
                                 {canEvaluate(ev, user) && (
                                   <button
