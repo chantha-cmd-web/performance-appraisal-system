@@ -112,9 +112,11 @@ export default function EvaluationForm() {
   }, [positionConfigs, formData.position]);
 
   const currentCriteria = useMemo(() => {
+    let baseCriteria: { id: number; kh: string; khDesc: string; en: string; desc: string; max: number; sectionId?: string }[] = [];
+
     // Priority 1: Position-based form config (used by self-evaluation flow)
     if (positionFormConfig && positionFormConfig.criteria.length > 0) {
-      return positionFormConfig.criteria
+      baseCriteria = positionFormConfig.criteria
         .filter(c => c.status === 'active')
         .map(c => ({
           id: c.id,
@@ -127,12 +129,62 @@ export default function EvaluationForm() {
         }));
     }
     // Priority 2: Matched self-eval profile
-    if (matchedProfile?.criteria && matchedProfile.criteria.length > 0) {
-      return matchedProfile.criteria;
+    else if (matchedProfile?.criteria && matchedProfile.criteria.length > 0) {
+      baseCriteria = matchedProfile.criteria;
     }
     // Priority 3: Evaluation type criteria from config
-    return config?.criteriaSets[formData.evaluationType] || [];
-  }, [positionFormConfig, matchedProfile, config, formData.evaluationType]);
+    else {
+      baseCriteria = config?.criteriaSets[formData.evaluationType] || [];
+    }
+
+    // Merge with global config criteria that match this position
+    if (positionFormConfig && config) {
+      const globalCriteria = config.criteriaSets?.[formData.evaluationType] || [];
+      const globalSections = config.sections?.[formData.evaluationType] || [];
+
+      const matchingGlobalCriteria = globalCriteria.filter(c => {
+        if (c.sectionId) {
+          const section = globalSections.find(s => s.id === c.sectionId);
+          if (section) {
+            const sectionAssigned = section.assignedPositions || [];
+            if (sectionAssigned.length > 0 && !sectionAssigned.includes(formData.position)) return false;
+          }
+        }
+        const criterionAssigned = (c as any).assignedPositions || [];
+        return criterionAssigned.length === 0 || criterionAssigned.includes(formData.position);
+      }).map(c => ({
+        id: c.id, kh: c.kh, khDesc: c.khDesc, en: c.en, desc: c.desc, max: c.max, sectionId: c.sectionId
+      }));
+
+      const baseIds = new Set(baseCriteria.map(c => c.id));
+      const additional = matchingGlobalCriteria.filter(c => !baseIds.has(c.id));
+      return [...baseCriteria, ...additional];
+    }
+
+    return baseCriteria;
+  }, [positionFormConfig, matchedProfile, config, formData.evaluationType, formData.position]);
+
+  const allSections = useMemo(() => {
+    const posSections = positionFormConfig
+      ? positionFormConfig.sections
+          .filter(s => s.status === 'active')
+          .sort((a, b) => a.displayOrder - b.displayOrder)
+          .map(s => ({ id: s.id, name: s.name, khName: s.khName, displayOrder: s.displayOrder }))
+      : [];
+
+    if (!positionFormConfig || !config) return posSections;
+
+    const globalSections = config.sections?.[formData.evaluationType] || [];
+    const matchingGlobalSections = globalSections.filter(s => {
+      if (s.status === 'inactive') return false;
+      const assigned = s.assignedPositions || [];
+      return assigned.length === 0 || assigned.includes(formData.position);
+    }).map(s => ({ id: s.id, name: s.name, khName: s.khName, displayOrder: s.displayOrder || 0 }));
+
+    const posIds = new Set(posSections.map(s => s.id));
+    const additional = matchingGlobalSections.filter(s => !posIds.has(s.id));
+    return [...posSections, ...additional].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+  }, [positionFormConfig, config, formData.evaluationType, formData.position]);
 
   useEffect(() => {
     if (currentCriteria.length > 0 && criteriaScores.length === 0) {
@@ -437,9 +489,7 @@ export default function EvaluationForm() {
         {/* ─── Criteria Scoring Table ─── */}
         <div className="p-4 sm:p-8">
           {(() => {
-            const sections = positionFormConfig
-              ? positionFormConfig.sections.filter(s => s.status === 'active').sort((a, b) => a.displayOrder - b.displayOrder).map(s => ({ id: s.id, name: s.name, khName: s.khName }))
-              : config?.sections?.[formData.evaluationType] || [];
+            const sections = allSections;
             const shownIds = new Set<number>();
             const allBlocks: React.ReactNode[] = [];
 
