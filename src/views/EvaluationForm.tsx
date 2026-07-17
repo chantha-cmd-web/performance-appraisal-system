@@ -288,7 +288,6 @@ export default function EvaluationForm() {
   const canReject = canRejectEvaluation(user, { appraiser: formData.appraiser, supporter: formData.supporter, status: formData.status });
   const canReopen = canReopenEvaluation(user, { status: formData.status });
   const superadminEdit = isAdmin(user) && !isViewOnly;
-  const canEditEvalConfig = !isViewOnly && (!editId || superadminEdit || canEditSelf);
 
   // ─── Status & Workflow ───
   const nextStatus = (action: 'save' | 'submit' | 'reject' | 'reopen') => getNextStatus(formData.status, action, cols.supporter);
@@ -481,22 +480,16 @@ export default function EvaluationForm() {
 
             <div>
               <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Evaluation Type / ប្រភេទ</label>
-              <select disabled={!canEditEvalConfig}
-                className="w-full px-4 py-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.1] bg-white/60 dark:bg-white/[0.06] backdrop-blur-xl focus:ring-2 focus:ring-indigo-500 font-medium text-sm text-slate-900 dark:text-slate-100 outline-none transition-all disabled:opacity-60"
-                value={formData.evaluationType}
-                onChange={e => setFormData({...formData, evaluationType: e.target.value})}>
-                {config?.types?.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-              </select>
+              <div className="w-full px-4 py-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.1] bg-slate-50/80 dark:bg-white/[0.04] font-medium text-sm text-slate-500 dark:text-slate-400">
+                {config?.types?.find(t => t.id === formData.evaluationType)?.label || formData.evaluationType || '—'}
+              </div>
             </div>
 
             <div>
               <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Weighting Scheme / របៀបគណនា</label>
-              <select disabled={!canEditEvalConfig}
-                className="w-full px-4 py-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.1] bg-white/60 dark:bg-white/[0.06] backdrop-blur-xl focus:ring-2 focus:ring-indigo-500 font-medium text-sm text-slate-900 dark:text-slate-100 outline-none transition-all disabled:opacity-60"
-                value={formData.weightScheme}
-                onChange={e => setFormData({...formData, weightScheme: e.target.value})}>
-                {config?.weightingSchemes?.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-              </select>
+              <div className="w-full px-4 py-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.1] bg-slate-50/80 dark:bg-white/[0.04] font-medium text-sm text-slate-500 dark:text-slate-400">
+                {config?.weightingSchemes?.find(s => s.id === formData.weightScheme)?.label || formData.weightScheme || '—'}
+              </div>
             </div>
           </div>
         </div>

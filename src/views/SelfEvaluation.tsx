@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { usePositionFormConfigs, useSettings } from '../hooks/useSettings';
 import { PREDEFINED_POSITIONS, PositionFormConfig } from '../types';
-import { ClipboardCheck, ArrowRight, FileText, Clock, CheckCircle2, AlertTriangle, Briefcase, Settings } from 'lucide-react';
+import { ClipboardCheck, ArrowRight, FileText, Clock, CheckCircle2, AlertTriangle, Briefcase } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 
@@ -16,12 +16,6 @@ export default function SelfEvaluation() {
   const [myEvaluations, setMyEvaluations] = useState<any[]>([]);
   const [loadingEvals, setLoadingEvals] = useState(true);
   const [creating, setCreating] = useState<string | null>(null);
-  const [configDialog, setConfigDialog] = useState<{
-    position: string;
-    config: PositionFormConfig;
-  } | null>(null);
-  const [selectedEvalType, setSelectedEvalType] = useState('management');
-  const [selectedWeightScheme, setSelectedWeightScheme] = useState('');
 
   useEffect(() => {
     fetchMyEvaluations();
@@ -86,16 +80,7 @@ export default function SelfEvaluation() {
       return;
     }
 
-    setSelectedEvalType(config.evaluationType || evalConfig?.types?.[0]?.id || 'management');
-    setSelectedWeightScheme(config.weightingScheme || evalConfig?.weightingSchemes?.[0]?.id || '');
-    setConfigDialog({ position, config });
-  };
-
-  const handleConfigConfirm = async () => {
-    if (!configDialog) return;
-    const { position, config } = configDialog;
-
-    setCreating(configDialog.position);
+    setCreating(position);
     try {
       const empRes = await apiFetch(`/api/employees?id=${user?.id}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -105,8 +90,8 @@ export default function SelfEvaluation() {
         empData = await empRes.json();
       }
 
-      const evalType = selectedEvalType;
-      const weightScheme = selectedWeightScheme;
+      const evalType = empData?.evaluationType || config.evaluationType || 'management';
+      const weightScheme = empData?.evalModel || config.weightingScheme || '';
 
       const globalSections = evalConfig?.sections?.[evalType] || [];
       const globalCriteria = evalConfig?.criteriaSets?.[evalType] || [];
@@ -183,7 +168,6 @@ export default function SelfEvaluation() {
       alert('Error creating evaluation.');
     } finally {
       setCreating(null);
-      setConfigDialog(null);
     }
   };
 
@@ -357,7 +341,7 @@ export default function SelfEvaluation() {
             <p className="font-bold text-slate-700 dark:text-slate-300">How Self-Evaluation Works:</p>
             <ol className="list-decimal list-inside space-y-0.5">
               <li>Select your position from the cards above</li>
-              <li>Choose Evaluation Type and Weighting Scheme</li>
+              <li>Evaluation Type and Weighting Scheme are auto-loaded from your profile</li>
               <li>Complete the self-evaluation form with your scores</li>
               <li>Submit your evaluation when ready</li>
               <li>Your supervisor will review and add their evaluation</li>
@@ -366,87 +350,6 @@ export default function SelfEvaluation() {
           </div>
         </div>
       </div>
-
-      {/* ─── Configuration Dialog ─── */}
-      {configDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="glass-card-strong rounded-3xl p-6 sm:p-8 max-w-md w-full space-y-6 border border-white/20 dark:border-white/[0.08] shadow-2xl">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-500/20">
-                <Settings size={20} className="text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-slate-800 dark:text-white">Configure Evaluation</h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">កំណត់រចនាសម្ព័ន្ធការវាយតម្លៃ</p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Position / តួនាទី</label>
-                <div className="w-full px-4 py-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.1] bg-slate-50/80 dark:bg-white/[0.04] font-medium text-sm text-slate-500 dark:text-slate-400">
-                  {configDialog.position}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Evaluation Type / ប្រភេទវាយតម្លៃ</label>
-                <select
-                  value={selectedEvalType}
-                  onChange={e => setSelectedEvalType(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.1] bg-white/60 dark:bg-white/[0.06] backdrop-blur-xl focus:ring-2 focus:ring-indigo-500 font-medium text-sm text-slate-900 dark:text-slate-100 outline-none transition-all"
-                >
-                  {evalConfig?.types?.map(t => (
-                    <option key={t.id} value={t.id}>{t.label}</option>
-                  ))}
-                  {(!evalConfig?.types || evalConfig.types.length === 0) && (
-                    <option value="management">Management / ការគ្រប់គ្រង</option>
-                  )}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Weighting Scheme / របៀបគណនា</label>
-                <select
-                  value={selectedWeightScheme}
-                  onChange={e => setSelectedWeightScheme(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.1] bg-white/60 dark:bg-white/[0.06] backdrop-blur-xl focus:ring-2 focus:ring-indigo-500 font-medium text-sm text-slate-900 dark:text-slate-100 outline-none transition-all"
-                >
-                  {evalConfig?.weightingSchemes?.map(s => (
-                    <option key={s.id} value={s.id}>{s.label}</option>
-                  ))}
-                  {(!evalConfig?.weightingSchemes || evalConfig.weightingSchemes.length === 0) && (
-                    <option value={configDialog.config.weightingScheme}>{configDialog.config.weightingScheme}</option>
-                  )}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setConfigDialog(null)}
-                className="flex-1 px-5 py-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.1] bg-white/60 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 font-bold text-sm transition-all active:scale-95 hover:bg-white/80 dark:hover:bg-white/10"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfigConfirm}
-                disabled={creating === configDialog.position}
-                className="flex-1 flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-sm rounded-2xl shadow-lg shadow-indigo-500/25 transition-all active:scale-95 disabled:opacity-50"
-              >
-                {creating === configDialog.position ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <ClipboardCheck size={16} />
-                )}
-                {creating === configDialog.position ? 'Creating...' : 'Create Evaluation'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

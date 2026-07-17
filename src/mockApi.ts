@@ -84,19 +84,19 @@ const defaultDb = {
       id: '201760', name: 'Chan Dara', khmerName: 'ចន្រ្ត ដារ៉ា', campus: 'Main Campus',
       department: 'Operations', position: 'Accountant', category: 'Full-time',
       supervisorId: 'sup001', supporterId: 'sup002',
-      evalModel: 'campus_60_40', evalPeriod: '2026'
+      evaluationType: 'management', evalModel: 'campus_60_40', evalPeriod: '2026'
     },
     {
       id: 'sup001', name: 'Som Bopha', khmerName: 'សុម បុប្ផា', campus: 'Main Campus',
       department: 'Management', position: 'Supervisor', category: 'Management',
       supervisorId: '', supporterId: '',
-      evalModel: 'campus_60_40', evalPeriod: '2026'
+      evaluationType: 'management', evalModel: 'campus_60_40', evalPeriod: '2026'
     },
     {
       id: 'sup002', name: 'Keo Chantrea', khmerName: 'គាវ ចន្រ្តី', campus: 'Central Office',
       department: 'HR', position: 'HR Officer', category: 'Full-time',
       supervisorId: '', supporterId: '',
-      evalModel: 'campus_60_40', evalPeriod: '2026'
+      evaluationType: 'management', evalModel: 'campus_60_40', evalPeriod: '2026'
     }
   ],
   auditLogs: [],

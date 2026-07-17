@@ -59,6 +59,7 @@ export interface Employee {
   category?: string;
   supervisorId?: string;
   supporterId?: string;
+  evaluationType?: string;
   evalModel?: string;
   evalPeriod?: string;
 }

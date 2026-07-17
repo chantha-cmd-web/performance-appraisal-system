@@ -31,6 +31,7 @@ db.exec(`
     category TEXT,
     supervisorId TEXT,
     supporterId TEXT,
+    evaluationType TEXT DEFAULT 'management',
     evalModel TEXT,
     evalPeriod TEXT
   );
@@ -103,6 +104,7 @@ try { db.exec('ALTER TABLE evaluations ADD COLUMN status TEXT DEFAULT "Draft"');
 try { db.exec('ALTER TABLE evaluations ADD COLUMN department TEXT'); } catch(e) {}
 try { db.exec('ALTER TABLE evaluations ADD COLUMN evalPeriod TEXT'); } catch(e) {}
 try { db.exec('ALTER TABLE evaluations ADD COLUMN supporter TEXT'); } catch(e) {}
+try { db.exec('ALTER TABLE employees ADD COLUMN evaluationType TEXT DEFAULT "management"'); } catch(e) {}
 
 // Seed Default Users if not exist
 const seedUsers = () => {
@@ -697,8 +699,8 @@ app.post('/api/employees', authenticateToken, requireSuperAdmin, (req, res) => {
   const data = req.body;
   try {
     const insertEmp = db.prepare(`
-      INSERT OR REPLACE INTO employees (id, name, khmerName, campus, department, position, category, supervisorId, supporterId, evalModel, evalPeriod)
-      VALUES (@id, @name, @khmerName, @campus, @department, @position, @category, @supervisorId, @supporterId, @evalModel, @evalPeriod)
+      INSERT OR REPLACE INTO employees (id, name, khmerName, campus, department, position, category, supervisorId, supporterId, evaluationType, evalModel, evalPeriod)
+      VALUES (@id, @name, @khmerName, @campus, @department, @position, @category, @supervisorId, @supporterId, @evaluationType, @evalModel, @evalPeriod)
     `);
     insertEmp.run({
         ...data,
@@ -707,6 +709,7 @@ app.post('/api/employees', authenticateToken, requireSuperAdmin, (req, res) => {
         category: data.category || '',
         supervisorId: data.supervisorId || '',
         supporterId: data.supporterId || '',
+        evaluationType: data.evaluationType || 'management',
         evalModel: data.evalModel || '',
         evalPeriod: data.evalPeriod || ''
     });
