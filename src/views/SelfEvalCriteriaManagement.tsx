@@ -58,7 +58,6 @@ export default function SelfEvalCriteriaManagement() {
       campus: '',
       position: '',
       category: '',
-      evaluationType: '',
       evaluationPeriod: '',
       criteria: []
     };

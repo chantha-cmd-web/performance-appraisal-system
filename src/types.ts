@@ -59,7 +59,6 @@ export interface Employee {
   category?: string;
   supervisorId?: string;
   supporterId?: string;
-  evaluationType?: string;
   evalModel?: string;
   evalPeriod?: string;
 }
@@ -126,7 +125,6 @@ export interface PositionCriterion {
 export interface PositionFormConfig {
   id: string;
   position: string;
-  evaluationType?: string;
   weightingScheme: string;
   sections: PositionSection[];
   criteria: PositionCriterion[];
@@ -140,12 +138,6 @@ export interface CriteriaDefinition {
   khDesc: string;
   max: number;
 }
-
-export const EVALUATION_TYPES = [
-  { id: 'management', label: 'Management / ការគ្រប់គ្រង' },
-  { id: 'teacher', label: 'Teacher / គ្រូបង្រៀន' },
-  { id: 'operations', label: 'Operations / ប្រតិបត្តិការ' }
-];
 
 export const CRITERIA_SETS: Record<string, CriteriaDefinition[]> = {
   management: [

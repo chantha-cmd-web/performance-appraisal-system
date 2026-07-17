@@ -31,14 +31,8 @@ export interface SelfEvalProfile {
   campus: string;
   position: string;
   category: string;
-  evaluationType: string;
   evaluationPeriod: string;
   criteria: Criterion[];
-}
-
-export interface EvaluationType {
-  id: string;
-  label: string;
 }
 
 export interface WeightingScheme {
@@ -47,7 +41,6 @@ export interface WeightingScheme {
 }
 
 export interface EvaluationConfig {
-  types: EvaluationType[];
   weightingSchemes: WeightingScheme[];
   criteriaSets: Record<string, Criterion[]>;
   sections: Record<string, CriterionSection[]>;

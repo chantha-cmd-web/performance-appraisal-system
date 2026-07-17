@@ -90,7 +90,7 @@ export default function SelfEvaluation() {
         empData = await empRes.json();
       }
 
-      const evalType = empData?.evaluationType || config.evaluationType || 'management';
+      const evalType = 'management';
       const weightScheme = empData?.evalModel || config.weightingScheme || '';
 
       const globalSections = evalConfig?.sections?.[evalType] || [];
@@ -273,7 +273,7 @@ export default function SelfEvaluation() {
                     <ClipboardCheck size={12} />
                     <span>{(() => {
                       const posSections = config.sections.filter(s => s.status === 'active').length;
-                      const evalType = config.evaluationType || 'management';
+                      const evalType = 'management';
                       const globalSections = (evalConfig?.sections?.[evalType] || [])
                         .filter(s => s.status !== 'inactive')
                         .filter(s => {
@@ -286,7 +286,7 @@ export default function SelfEvaluation() {
                     <span className="text-slate-300 dark:text-slate-600">•</span>
                     <span>{(() => {
                       const posCriteria = config.criteria.filter(c => c.status === 'active').length;
-                      const evalType = config.evaluationType || 'management';
+                      const evalType = 'management';
                       const globalSections = evalConfig?.sections?.[evalType] || [];
                       const globalCriteria = (evalConfig?.criteriaSets?.[evalType] || []).filter(c => {
                         if (c.sectionId) {

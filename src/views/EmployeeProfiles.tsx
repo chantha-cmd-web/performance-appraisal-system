@@ -35,7 +35,6 @@ export default function EmployeeProfiles() {
     category: '',
     supervisorId: '',
     supporterId: '',
-    evaluationType: 'management',
     evalModel: '',
     evalPeriod: ''
   });
@@ -93,7 +92,7 @@ export default function EmployeeProfiles() {
   const openAddEmployee = () => {
     setModalMode('add');
     setEditingEmp(null);
-    setEmpForm({ id: '', name: '', khmerName: '', campus: '', department: '', position: '', category: '', supervisorId: '', supporterId: '', evaluationType: 'management', evalModel: '', evalPeriod: '' });
+    setEmpForm({ id: '', name: '', khmerName: '', campus: '', department: '', position: '', category: '', supervisorId: '', supporterId: '', evalModel: '', evalPeriod: '' });
     setShowModal(true);
   };
 
@@ -110,7 +109,6 @@ export default function EmployeeProfiles() {
       category: emp.category || '',
       supervisorId: emp.supervisorId || '',
       supporterId: emp.supporterId || '',
-      evaluationType: emp.evaluationType || 'management',
       evalModel: emp.evalModel || '',
       evalPeriod: emp.evalPeriod || ''
     });
@@ -226,7 +224,6 @@ export default function EmployeeProfiles() {
           supervisorId: String(row['Direct Supervisor ID'] || row['supervisorId'] || '').trim(),
           supporterId: String(row['Supporter ID'] || row['supporterId'] || '').trim(),
           evalModel: String(row['Evaluation Model'] || row['evalModel'] || '').trim(),
-          evaluationType: String(row['Evaluation Type'] || row['evaluationType'] || 'management').trim(),
           evalPeriod: String(row['Evaluation Period'] || row['evalPeriod'] || '').trim(),
         };
 
@@ -305,7 +302,6 @@ export default function EmployeeProfiles() {
       'Direct Supervisor ID': e.supervisorId || '',
       'Supporter ID': e.supporterId || '',
       'Evaluation Model': e.evalModel || '',
-      'Evaluation Type': e.evaluationType || 'management',
       'Evaluation Period': e.evalPeriod || ''
     }));
     
@@ -328,7 +324,6 @@ export default function EmployeeProfiles() {
         'Direct Supervisor ID': 'SUP001',
         'Supporter ID': 'SUP002',
         'Evaluation Model': 'campus_60_40',
-        'Evaluation Type': 'management',
         'Evaluation Period': 'Q3 2026'
       },
       {
@@ -342,7 +337,6 @@ export default function EmployeeProfiles() {
         'Direct Supervisor ID': 'SUP003',
         'Supporter ID': 'SUP003',
         'Evaluation Model': 'campus_50_50',
-        'Evaluation Type': 'management',
         'Evaluation Period': 'Q3 2026'
       },
       {
@@ -356,7 +350,6 @@ export default function EmployeeProfiles() {
         'Direct Supervisor ID': '',
         'Supporter ID': '',
         'Evaluation Model': 'campus_100',
-        'Evaluation Type': 'management',
         'Evaluation Period': 'Q3 2026'
       },
       {
@@ -370,7 +363,6 @@ export default function EmployeeProfiles() {
         'Direct Supervisor ID': 'SUP005',
         'Supporter ID': '',
         'Evaluation Model': 'central_100',
-        'Evaluation Type': 'operations',
         'Evaluation Period': 'Q3 2026'
       },
       {
@@ -384,7 +376,6 @@ export default function EmployeeProfiles() {
         'Direct Supervisor ID': '',
         'Supporter ID': '',
         'Evaluation Model': 'management_100',
-        'Evaluation Type': 'management',
         'Evaluation Period': 'Q3 2026'
       }
     ];
@@ -392,7 +383,7 @@ export default function EmployeeProfiles() {
     ws['!cols'] = [
       { wch: 10 }, { wch: 18 }, { wch: 15 }, { wch: 15 },
       { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 18 },
-      { wch: 14 }, { wch: 18 }, { wch: 16 }, { wch: 16 }
+      { wch: 14 }, { wch: 20 }, { wch: 16 }
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Template");
@@ -561,14 +552,6 @@ export default function EmployeeProfiles() {
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">Eval Model</label>
                   <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none" value={empForm.evalModel} onChange={e => setEmpForm({...empForm, evalModel: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">Evaluation Type</label>
-                  <select className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none" value={empForm.evaluationType} onChange={e => setEmpForm({...empForm, evaluationType: e.target.value})}>
-                    <option value="management">Management</option>
-                    <option value="teacher">Teacher</option>
-                    <option value="operations">Operations</option>
-                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">Eval Period</label>

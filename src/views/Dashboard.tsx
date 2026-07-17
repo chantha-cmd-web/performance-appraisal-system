@@ -166,7 +166,7 @@ export default function Dashboard() {
         'Employee Name': e.employeeName,
         'Campus': e.campus,
         'Position': e.position,
-        'Type': e.evaluationType,
+        'Type': e.weightScheme,
         'Date': e.reviewDate,
         'Self Score': e.totalSelf,
         'Supervisor Score': e.totalSuper,

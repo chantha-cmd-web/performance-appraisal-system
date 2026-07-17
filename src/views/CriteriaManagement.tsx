@@ -1,7 +1,7 @@
 import { apiFetch } from '../mockApi';
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useSettings, EvaluationConfig, Criterion, CriterionSection, EvaluationType, WeightingScheme } from '../hooks/useSettings';
+import { useSettings, EvaluationConfig, Criterion, CriterionSection, WeightingScheme } from '../hooks/useSettings';
 import { Save, Plus, Trash2, Settings, List, PlusCircle, ShieldAlert, ChevronDown, ChevronRight, FolderOpen, GripVertical } from 'lucide-react';
 import { PREDEFINED_POSITIONS } from '../types';
 

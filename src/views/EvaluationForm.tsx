@@ -42,7 +42,7 @@ export default function EvaluationForm() {
     evalPeriod: '',
     reviewDate: new Date().toISOString().split('T')[0],
     weightScheme: '',
-    evaluationType: '',
+    evaluationType: 'management',
     status: 'Draft',
     createdAt: '',
     createdByName: '',
@@ -89,7 +89,7 @@ export default function EvaluationForm() {
     if (!editId && config && formData.evaluationType === '') {
       setFormData(prev => ({
         ...prev,
-        evaluationType: config.types?.[0]?.id || '',
+        evaluationType: 'management',
         weightScheme: config.weightingSchemes?.[0]?.id || ''
       }));
     }
@@ -102,11 +102,10 @@ export default function EvaluationForm() {
       if (p.campus && p.campus.toLowerCase() !== formData.campus.toLowerCase()) return false;
       if (p.position && p.position.toLowerCase() !== formData.position.toLowerCase()) return false;
       if (p.category && p.category.toLowerCase() !== formData.category.toLowerCase()) return false;
-      if (p.evaluationType && p.evaluationType !== formData.evaluationType) return false;
       if (p.evaluationPeriod && p.evaluationPeriod.toLowerCase() !== formData.evalPeriod.toLowerCase()) return false;
       return true;
     }) || null;
-  }, [profiles, formData.department, formData.campus, formData.position, formData.category, formData.evaluationType, formData.evalPeriod]);
+  }, [profiles, formData.department, formData.campus, formData.position, formData.category, formData.evalPeriod]);
 
   // Check if there's a position-based form config for this evaluation's position
   const positionFormConfig = useMemo(() => {
@@ -137,13 +136,13 @@ export default function EvaluationForm() {
     }
     // Priority 3: Evaluation type criteria from config
     else {
-      baseCriteria = config?.criteriaSets[formData.evaluationType] || [];
+      baseCriteria = config?.criteriaSets['management'] || [];
     }
 
     // Merge with global config criteria that match this position
     if (positionFormConfig && config) {
-      const globalCriteria = config.criteriaSets?.[formData.evaluationType] || [];
-      const globalSections = config.sections?.[formData.evaluationType] || [];
+      const globalCriteria = config.criteriaSets?.['management'] || [];
+      const globalSections = config.sections?.['management'] || [];
 
       const matchingGlobalCriteria = globalCriteria.filter(c => {
         if (c.sectionId) {
@@ -165,7 +164,7 @@ export default function EvaluationForm() {
     }
 
     return baseCriteria;
-  }, [positionFormConfig, matchedProfile, config, formData.evaluationType, formData.position]);
+  }, [positionFormConfig, matchedProfile, config, formData.position]);
 
   const allSections = useMemo(() => {
     const posSections = positionFormConfig
@@ -177,7 +176,7 @@ export default function EvaluationForm() {
 
     if (!positionFormConfig || !config) return posSections;
 
-    const globalSections = config.sections?.[formData.evaluationType] || [];
+    const globalSections = config.sections?.['management'] || [];
     const matchingGlobalSections = globalSections.filter(s => {
       if (s.status === 'inactive') return false;
       const assigned = s.assignedPositions || [];
@@ -187,7 +186,7 @@ export default function EvaluationForm() {
     const posIds = new Set(posSections.map(s => s.id));
     const additional = matchingGlobalSections.filter(s => !posIds.has(s.id));
     return [...posSections, ...additional].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
-  }, [positionFormConfig, config, formData.evaluationType, formData.position]);
+  }, [positionFormConfig, config, formData.position]);
 
   useEffect(() => {
     if (editId && scoresLoadedFromServer.current) {
@@ -218,7 +217,7 @@ export default function EvaluationForm() {
         };
       }));
     }
-  }, [formData.evaluationType, currentCriteria, editId, initialLoad]);
+  }, [currentCriteria, editId, initialLoad]);
 
   const handleCriteriaChange = useCallback((idx: number, field: keyof CriteriaScore, val: string, maxScore: number = 10) => {
     const num = Math.min(maxScore, Math.max(0, parseFloat(val) || 0));
@@ -477,13 +476,6 @@ export default function EvaluationForm() {
             <Input disabled={isViewOnly} label={<>Supporter / អ្នកគាំទ្រ</>} value={formData.supporter} onChange={v => setFormData({...formData, supporter: v})} />
             <Input disabled={isViewOnly} label={<>Eval Period / វដ្ត</>} value={formData.evalPeriod} onChange={v => setFormData({...formData, evalPeriod: v})} />
             <Input disabled={isViewOnly} label={<>Review Date / កាលបរិច្ឆេទ</>} type="date" value={formData.reviewDate} onChange={v => setFormData({...formData, reviewDate: v})} required />
-
-            <div>
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Evaluation Type / ប្រភេទ</label>
-              <div className="w-full px-4 py-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.1] bg-slate-50/80 dark:bg-white/[0.04] font-medium text-sm text-slate-500 dark:text-slate-400">
-                {config?.types?.find(t => t.id === formData.evaluationType)?.label || formData.evaluationType || '—'}
-              </div>
-            </div>
 
             <div>
               <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Weighting Scheme / របៀបគណនា</label>
