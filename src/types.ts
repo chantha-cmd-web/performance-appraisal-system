@@ -125,6 +125,7 @@ export interface PositionCriterion {
 export interface PositionFormConfig {
   id: string;
   position: string;
+  evaluationType?: string;
   weightingScheme: string;
   sections: PositionSection[];
   criteria: PositionCriterion[];
