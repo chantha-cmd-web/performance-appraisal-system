@@ -1,5 +1,5 @@
 import { apiFetch } from '../mockApi';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { CriteriaScore, PeerFeedback, STATUS_LABELS } from '../types';
 import { Save, Plus, Trash2, Printer, Lock, Unlock, CheckCircle2, Circle, AlertTriangle } from 'lucide-react';
@@ -51,6 +51,7 @@ export default function EvaluationForm() {
 
   const [criteriaScores, setCriteriaScores] = useState<CriteriaScore[]>([]);
   const [peerFeedbacks, setPeerFeedbacks] = useState<PeerFeedback[]>([]);
+  const scoresLoadedFromServer = useRef(false);
 
   useEffect(() => { if (editId) fetchEvaluation(); }, [editId]);
 
@@ -69,10 +70,12 @@ export default function EvaluationForm() {
           evaluationType: data.evaluationType || 'management', status: data.status || 'Draft',
           createdAt: data.createdAt, createdByName: data.createdByName, evaluatorComments: data.evaluatorComments || ''
         });
-        setCriteriaScores((data.criteriaScores || data.scores || []).map((s: any) => ({
+        const loadedScores = (data.criteriaScores || data.scores || []).map((s: any) => ({
           criteriaId: s.criteriaId, selfScore: s.selfScore ?? 0, superScore: s.superScore ?? 0,
           supporterScore: s.supporterScore ?? 0, managementScore: s.managementScore ?? 0, aspScore: s.aspScore ?? 0,
-        })));
+        }));
+        setCriteriaScores(loadedScores);
+        scoresLoadedFromServer.current = loadedScores.length > 0;
         setPeerFeedbacks(data.peerFeedbacks || []);
       } else {
         alert('Evaluation not found');
@@ -187,6 +190,21 @@ export default function EvaluationForm() {
   }, [positionFormConfig, config, formData.evaluationType, formData.position]);
 
   useEffect(() => {
+    if (editId && scoresLoadedFromServer.current) {
+      // Scores were already loaded from server for an existing evaluation.
+      // Only remap if criteria count changed (e.g., config updated), preserving existing scores.
+      if (currentCriteria.length > 0 && criteriaScores.length > 0 && currentCriteria.length !== criteriaScores.length) {
+        const scoreMap = new Map(criteriaScores.map(s => [s.criteriaId, s]));
+        setCriteriaScores(currentCriteria.map(c => {
+          const existing = scoreMap.get(c.id);
+          return existing || {
+            criteriaId: c.id, selfScore: 0, superScore: 0, supporterScore: 0, managementScore: 0, aspScore: 0
+          };
+        }));
+      }
+      return;
+    }
+    // New evaluation or scores not yet loaded from server: initialize scores from criteria
     if (currentCriteria.length > 0 && criteriaScores.length === 0) {
       setCriteriaScores(currentCriteria.map(c => ({
         criteriaId: c.id, selfScore: 0, superScore: 0, supporterScore: 0, managementScore: 0, aspScore: 0
@@ -202,14 +220,10 @@ export default function EvaluationForm() {
     }
   }, [formData.evaluationType, currentCriteria, editId, initialLoad]);
 
-  const handleCriteriaChange = (idx: number, field: keyof CriteriaScore, val: string, maxScore: number = 10) => {
+  const handleCriteriaChange = useCallback((idx: number, field: keyof CriteriaScore, val: string, maxScore: number = 10) => {
     const num = Math.min(maxScore, Math.max(0, parseFloat(val) || 0));
-    const newScores = [...criteriaScores];
-    if (newScores[idx]) {
-      (newScores[idx][field] as number) = num;
-      setCriteriaScores(newScores);
-    }
-  };
+    setCriteriaScores(prev => prev.map((s, i) => i === idx ? { ...s, [field]: num } : s));
+  }, []);
 
   const addPeerFeedback = () => setPeerFeedbacks([...peerFeedbacks, { peerName: '', feedback: '', score: 0 }]);
   const updatePeerFeedback = (idx: number, field: keyof PeerFeedback, val: string | number) => {

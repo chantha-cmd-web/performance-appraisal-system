@@ -613,11 +613,11 @@ app.put('/api/evaluations/:id', authenticateToken, (req, res) => {
   const data = req.body;
   
   try {
-    const ev = db.prepare('SELECT createdBy, appraiser, supporter FROM evaluations WHERE id = ?').get(id) as any;
+    const ev = db.prepare('SELECT createdBy, appraiser, supporter, employeeId FROM evaluations WHERE id = ?').get(id) as any;
     if (!ev) return res.status(404).json({ error: 'Evaluation not found' });
     
-    // Allow superadmin, creator, appraiser, or supporter to edit
-    if (req.user!.role !== 'superadmin' && ev.createdBy !== req.user!.id && ev.appraiser !== req.user!.id && ev.supporter !== req.user!.id) {
+    // Allow superadmin, creator, appraiser, supporter, or the employee themselves to edit
+    if (req.user!.role !== 'superadmin' && ev.createdBy !== req.user!.id && ev.appraiser !== req.user!.id && ev.supporter !== req.user!.id && ev.employeeId !== req.user!.id) {
       return res.status(403).json({ error: 'Not authorized to edit this evaluation' });
     }
 
@@ -672,8 +672,8 @@ app.get('/api/evaluations', authenticateToken, (req, res) => {
   if (req.user?.role === 'superadmin') {
     evals = db.prepare('SELECT * FROM evaluations ORDER BY createdAt DESC').all();
   } else {
-    // Return evaluations created by user OR assigned to user (appraiser or supporter)
-    evals = db.prepare('SELECT * FROM evaluations WHERE createdBy = ? OR appraiser = ? OR supporter = ? ORDER BY createdAt DESC').all(req.user?.id, req.user?.id, req.user?.id);
+    // Return evaluations created by user, assigned to user (appraiser or supporter), or where user is the employee
+    evals = db.prepare('SELECT * FROM evaluations WHERE createdBy = ? OR appraiser = ? OR supporter = ? OR employeeId = ? ORDER BY createdAt DESC').all(req.user?.id, req.user?.id, req.user?.id, req.user?.id);
   }
   res.json(evals);
 });
