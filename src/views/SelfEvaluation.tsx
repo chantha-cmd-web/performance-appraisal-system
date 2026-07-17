@@ -2,7 +2,7 @@ import { apiFetch } from '../mockApi';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { usePositionFormConfigs, useSettings } from '../hooks/useSettings';
+import { usePositionFormConfigs } from '../hooks/useSettings';
 import { PREDEFINED_POSITIONS, PositionFormConfig } from '../types';
 import { ClipboardCheck, ArrowRight, FileText, Clock, CheckCircle2, AlertTriangle, Briefcase } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -12,7 +12,6 @@ export default function SelfEvaluation() {
   const { user, token } = useAuth();
   const navigate = useNavigate();
   const { configs, loading: configsLoading } = usePositionFormConfigs();
-  const { config: evalConfig, loading: evalConfigLoading } = useSettings();
   const [myEvaluations, setMyEvaluations] = useState<any[]>([]);
   const [loadingEvals, setLoadingEvals] = useState(true);
   const [creating, setCreating] = useState<string | null>(null);
@@ -93,21 +92,7 @@ export default function SelfEvaluation() {
       const evalType = 'management';
       const weightScheme = empData?.evalModel || config.weightingScheme || '';
 
-      const globalSections = evalConfig?.sections?.[evalType] || [];
-      const globalCriteria = evalConfig?.criteriaSets?.[evalType] || [];
       const posActiveCriteria = config.criteria.filter(c => c.status === 'active');
-      const matchingGlobalCriteria = globalCriteria.filter(c => {
-        if (c.sectionId) {
-          const section = globalSections.find(s => s.id === c.sectionId);
-          if (section) {
-            const assigned = section.assignedPositions || [];
-            if (assigned.length > 0 && !assigned.includes(position)) return false;
-          }
-        }
-        return true;
-      });
-      const posIds = new Set(posActiveCriteria.map(c => c.id));
-      const additionalGlobal = matchingGlobalCriteria.filter(c => !posIds.has(c.id));
 
       const newEval = {
         employeeId: user?.id || '',
@@ -126,7 +111,7 @@ export default function SelfEvaluation() {
         totalSelf: 0,
         totalSuper: 0,
         overallScore: 0,
-        criteriaScores: [...posActiveCriteria, ...additionalGlobal].map(c => ({
+        criteriaScores: posActiveCriteria.map(c => ({
           criteriaId: c.id,
           selfScore: 0,
           superScore: 0,
@@ -171,7 +156,7 @@ export default function SelfEvaluation() {
     }
   };
 
-  if (configsLoading || evalConfigLoading || loadingEvals) {
+  if (configsLoading || loadingEvals) {
     return (
       <div className="flex items-center justify-center p-16">
         <div className="flex flex-col items-center gap-3">
@@ -271,37 +256,9 @@ export default function SelfEvaluation() {
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                     <ClipboardCheck size={12} />
-                    <span>{(() => {
-                      const posSections = config.sections.filter(s => s.status === 'active').length;
-                      const evalType = 'management';
-                      const globalSections = (evalConfig?.sections?.[evalType] || [])
-                        .filter(s => s.status !== 'inactive')
-                        .filter(s => {
-                          const assigned = s.assignedPositions || [];
-                          return assigned.length === 0 || assigned.includes(position);
-                        })
-                        .filter(s => !config.sections.find(ps => ps.id === s.id)).length;
-                      return posSections + globalSections;
-                    })()} sections</span>
+                    <span>{config.sections.filter(s => s.status === 'active').length} sections</span>
                     <span className="text-slate-300 dark:text-slate-600">•</span>
-                    <span>{(() => {
-                      const posCriteria = config.criteria.filter(c => c.status === 'active').length;
-                      const evalType = 'management';
-                      const globalSections = evalConfig?.sections?.[evalType] || [];
-                      const globalCriteria = (evalConfig?.criteriaSets?.[evalType] || []).filter(c => {
-                        if (c.sectionId) {
-                          const section = globalSections.find(s => s.id === c.sectionId);
-                          if (section) {
-                            const assigned = section.assignedPositions || [];
-                            if (assigned.length > 0 && !assigned.includes(position)) return false;
-                          }
-                        }
-                        return true;
-                      });
-                      const posIds = new Set(config.criteria.filter(c => c.status === 'active').map(c => c.id));
-                      const additional = globalCriteria.filter(c => !posIds.has(c.id)).length;
-                      return posCriteria + additional;
-                    })()} criteria</span>
+                    <span>{config.criteria.filter(c => c.status === 'active').length} criteria</span>
                   </div>
                   {isActive && posStatus.evaluation && (
                     <div className="flex items-center gap-1.5 mt-2">

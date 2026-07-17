@@ -89,8 +89,6 @@ export default function Layout() {
 
               <SidebarLink to="/hr-settings" icon={<Settings size={20} />} label="HR Settings" isOpen={isOpen} />
 
-              <SidebarLink to="/settings" icon={<Settings size={20} />} label="Criteria & Evaluators" isOpen={isOpen} />
-
               <SidebarLink to="/position-forms" icon={<ClipboardCheck size={20} />} label="Position Forms" isOpen={isOpen} />
 
               <SidebarLink to="/data-management" icon={

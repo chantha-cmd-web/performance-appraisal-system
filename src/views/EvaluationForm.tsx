@@ -86,14 +86,13 @@ export default function EvaluationForm() {
   };
 
   useEffect(() => {
-    if (!editId && config && formData.evaluationType === '') {
+    if (!editId && formData.evaluationType === '') {
       setFormData(prev => ({
         ...prev,
         evaluationType: 'management',
-        weightScheme: config.weightingSchemes?.[0]?.id || ''
       }));
     }
-  }, [config, editId]);
+  }, [editId]);
 
   const matchedProfile = useMemo(() => {
     if (!profiles) return null;
@@ -114,11 +113,9 @@ export default function EvaluationForm() {
   }, [positionConfigs, formData.position]);
 
   const currentCriteria = useMemo(() => {
-    let baseCriteria: { id: number; kh: string; khDesc: string; en: string; desc: string; max: number; sectionId?: string }[] = [];
-
-    // Priority 1: Position-based form config (used by self-evaluation flow)
+    // Priority 1: Position-based form config (primary source)
     if (positionFormConfig && positionFormConfig.criteria.length > 0) {
-      baseCriteria = positionFormConfig.criteria
+      return positionFormConfig.criteria
         .filter(c => c.status === 'active')
         .map(c => ({
           id: c.id,
@@ -131,62 +128,19 @@ export default function EvaluationForm() {
         }));
     }
     // Priority 2: Matched self-eval profile
-    else if (matchedProfile?.criteria && matchedProfile.criteria.length > 0) {
-      baseCriteria = matchedProfile.criteria;
+    if (matchedProfile?.criteria && matchedProfile.criteria.length > 0) {
+      return matchedProfile.criteria;
     }
-    // Priority 3: Evaluation type criteria from config
-    else {
-      baseCriteria = config?.criteriaSets['management'] || [];
-    }
-
-    // Merge with global config criteria that match this position
-    if (positionFormConfig && config) {
-      const globalCriteria = config.criteriaSets?.['management'] || [];
-      const globalSections = config.sections?.['management'] || [];
-
-      const matchingGlobalCriteria = globalCriteria.filter(c => {
-        if (c.sectionId) {
-          const section = globalSections.find(s => s.id === c.sectionId);
-          if (section) {
-            const sectionAssigned = section.assignedPositions || [];
-            if (sectionAssigned.length > 0 && !sectionAssigned.includes(formData.position)) return false;
-          }
-        }
-        const criterionAssigned = (c as any).assignedPositions || [];
-        return criterionAssigned.length === 0 || criterionAssigned.includes(formData.position);
-      }).map(c => ({
-        id: c.id, kh: c.kh, khDesc: c.khDesc, en: c.en, desc: c.desc, max: c.max, sectionId: c.sectionId
-      }));
-
-      const baseIds = new Set(baseCriteria.map(c => c.id));
-      const additional = matchingGlobalCriteria.filter(c => !baseIds.has(c.id));
-      return [...baseCriteria, ...additional];
-    }
-
-    return baseCriteria;
-  }, [positionFormConfig, matchedProfile, config, formData.position]);
+    return [];
+  }, [positionFormConfig, matchedProfile]);
 
   const allSections = useMemo(() => {
-    const posSections = positionFormConfig
-      ? positionFormConfig.sections
-          .filter(s => s.status === 'active')
-          .sort((a, b) => a.displayOrder - b.displayOrder)
-          .map(s => ({ id: s.id, name: s.name, khName: s.khName, displayOrder: s.displayOrder }))
-      : [];
-
-    if (!positionFormConfig || !config) return posSections;
-
-    const globalSections = config.sections?.['management'] || [];
-    const matchingGlobalSections = globalSections.filter(s => {
-      if (s.status === 'inactive') return false;
-      const assigned = s.assignedPositions || [];
-      return assigned.length === 0 || assigned.includes(formData.position);
-    }).map(s => ({ id: s.id, name: s.name, khName: s.khName, displayOrder: s.displayOrder || 0 }));
-
-    const posIds = new Set(posSections.map(s => s.id));
-    const additional = matchingGlobalSections.filter(s => !posIds.has(s.id));
-    return [...posSections, ...additional].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
-  }, [positionFormConfig, config, formData.position]);
+    if (!positionFormConfig) return [];
+    return positionFormConfig.sections
+      .filter(s => s.status === 'active')
+      .sort((a, b) => a.displayOrder - b.displayOrder)
+      .map(s => ({ id: s.id, name: s.name, khName: s.khName, displayOrder: s.displayOrder }));
+  }, [positionFormConfig]);
 
   useEffect(() => {
     if (editId && scoresLoadedFromServer.current) {
@@ -335,7 +289,7 @@ export default function EvaluationForm() {
     }
   };
 
-  if (configLoading || profilesLoading || posConfigsLoading || initialLoad) {
+  if (profilesLoading || posConfigsLoading || initialLoad) {
     return (
       <div className="flex items-center justify-center p-16">
         <div className="flex flex-col items-center gap-3">
