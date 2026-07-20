@@ -435,9 +435,8 @@ function buildEvaluationTable(sectionData: any[], colCount: number, showSuper: b
 }
 
 const styles = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+Khmer:wght@300;400;500;600;700&display=swap');
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:'Inter','Noto Sans Khmer',system-ui,sans-serif; background:#f1f5f9; color:#1e293b; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+body { font-family:Arial,Helvetica,system-ui,sans-serif; background:#f1f5f9; color:#1e293b; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 @page { size:A4 portrait; margin:0; }
 .page { width:210mm; min-height:297mm; padding:12mm 15mm; position:relative; page-break-after:always; background:white; overflow:hidden; }
 .page:last-child { page-break-after:auto; }
@@ -575,12 +574,12 @@ ${pages.join('\n')}
 </html>`;
 
   const container = document.createElement('div');
-  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:210mm;background:white;z-index:-1;';
+  container.style.cssText = 'position:fixed;left:0;top:0;width:210mm;background:white;z-index:-1;opacity:0.01;pointer-events:none;';
   container.innerHTML = fullHtml;
   document.body.appendChild(container);
 
-  // Wait for fonts to load and DOM to render
-  await new Promise(r => setTimeout(r, 1500));
+  // Wait for DOM to render
+  await new Promise(r => setTimeout(r, 500));
 
   const filename = `Performance_Report_${data.evaluation.employeeName.replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
 
@@ -592,11 +591,13 @@ ${pages.join('\n')}
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: {
           scale: 2,
-          useCORS: true,
+          useCORS: false,
           letterRendering: true,
           backgroundColor: '#ffffff',
           logging: false,
-          allowTaint: false,
+          allowTaint: true,
+          windowHeight: 2970,
+          windowWidth: 2100,
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       })
