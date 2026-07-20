@@ -194,6 +194,14 @@ export default function Dashboard() {
     URL.revokeObjectURL(url);
   };
 
+  const findPositionConfig = (cfgs: any[], position: string | undefined): any | null => {
+    if (!Array.isArray(cfgs) || !position) return null;
+    const trimmed = position.trim();
+    const exact = cfgs.find((c: any) => c.position === trimmed);
+    if (exact) return exact;
+    return cfgs.find((c: any) => c.position?.toLowerCase().trim() === trimmed.toLowerCase()) || null;
+  };
+
   const handlePrint = async () => {
     if (filteredEvals.length === 0) {
       toast.error('No evaluations to export');
@@ -202,11 +210,9 @@ export default function Dashboard() {
     if (filteredEvals.length === 1) {
       const ev = filteredEvals[0];
       try {
-        const empRes = await apiFetch(`/api/employees?id=${ev.employeeId}`, { headers: { Authorization: `Bearer ${token}` } });
-        const emp = await empRes.json();
         const cfgRes = await apiFetch('/api/settings/position_form_configs', { headers: { Authorization: `Bearer ${token}` } });
         const cfgs = await cfgRes.json();
-        const cfg = Array.isArray(cfgs) ? cfgs.find((c: any) => c.position === ev.position) : null;
+        const cfg = findPositionConfig(cfgs, ev.position);
         await generatePdfReport({ evaluation: ev, positionFormConfig: cfg });
         toast.success('PDF exported successfully');
       } catch (err) {
@@ -217,11 +223,9 @@ export default function Dashboard() {
     toast(`Generating PDF for ${filteredEvals.length} evaluations...`, { icon: '📄' });
     for (const ev of filteredEvals) {
       try {
-        const empRes = await apiFetch(`/api/employees?id=${ev.employeeId}`, { headers: { Authorization: `Bearer ${token}` } });
-        const emp = await empRes.json();
         const cfgRes = await apiFetch('/api/settings/position_form_configs', { headers: { Authorization: `Bearer ${token}` } });
         const cfgs = await cfgRes.json();
-        const cfg = Array.isArray(cfgs) ? cfgs.find((c: any) => c.position === ev.position) : null;
+        const cfg = findPositionConfig(cfgs, ev.position);
         await generatePdfReport({ evaluation: ev, positionFormConfig: cfg });
       } catch { /* skip failed */ }
     }
@@ -232,7 +236,7 @@ export default function Dashboard() {
     try {
       const cfgRes = await apiFetch('/api/settings/position_form_configs', { headers: { Authorization: `Bearer ${token}` } });
       const cfgs = await cfgRes.json();
-      const cfg = Array.isArray(cfgs) ? cfgs.find((c: any) => c.position === ev.position) : null;
+      const cfg = findPositionConfig(cfgs, ev.position);
       await generatePdfReport({ evaluation: ev, positionFormConfig: cfg });
       toast.success('PDF exported');
     } catch {

@@ -550,6 +550,11 @@ body { font-family:'Inter','Noto Sans Khmer',system-ui,sans-serif; background:#f
 export async function generatePdfReport(data: PdfReportData): Promise<void> {
   const html2pdf = (await import('html2pdf.js')).default;
 
+  // Validate essential data
+  if (!data.evaluation || !data.evaluation.employeeName) {
+    throw new Error('Invalid evaluation data for PDF generation');
+  }
+
   const pages = [
     buildPage(data, 'cover', 1),
     buildPage(data, 'summary', 2),
@@ -574,7 +579,8 @@ ${pages.join('\n')}
   container.innerHTML = fullHtml;
   document.body.appendChild(container);
 
-  await new Promise(r => setTimeout(r, 1000));
+  // Wait for fonts to load and DOM to render
+  await new Promise(r => setTimeout(r, 1500));
 
   const filename = `Performance_Report_${data.evaluation.employeeName.replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
 
@@ -590,6 +596,7 @@ ${pages.join('\n')}
           letterRendering: true,
           backgroundColor: '#ffffff',
           logging: false,
+          allowTaint: false,
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       })

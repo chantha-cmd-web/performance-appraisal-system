@@ -348,7 +348,9 @@ export default function EvaluationForm() {
               try {
                 const cfgRes = await apiFetch('/api/settings/position_form_configs', { headers: { Authorization: `Bearer ${token}` } });
                 const cfgs = await cfgRes.json();
-                const cfg = Array.isArray(cfgs) ? cfgs.find((c: any) => c.position === formData.position) : null;
+                const trimmed = formData.position.trim();
+                const exact = Array.isArray(cfgs) ? cfgs.find((c: any) => c.position === trimmed) : null;
+                const cfg = exact || (Array.isArray(cfgs) ? cfgs.find((c: any) => c.position?.toLowerCase().trim() === trimmed.toLowerCase()) : null);
                 await generatePdfReport({ evaluation: formData as any, positionFormConfig: cfg });
                 toast.success('PDF exported');
               } catch { toast.error('Failed to generate PDF'); }
