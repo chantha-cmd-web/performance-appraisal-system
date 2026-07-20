@@ -73,9 +73,7 @@ export default function Layout() {
 
           <SidebarLink to="/self-evaluation" icon={<ClipboardCheck size={20} />} label="Self Evaluation" isOpen={isOpen} />
 
-          {(user.role === 'superadmin' || user.role === 'admin' || user.role === 'employee') && (
-            <SidebarLink to="/evaluation" icon={<FileEdit size={20} />} label="New Evaluation" isOpen={isOpen} />
-          )}
+          <SidebarLink to="/evaluation" icon={<FileEdit size={20} />} label="New Evaluation" isOpen={isOpen} />
 
           {user.role === 'superadmin' && (
             <>

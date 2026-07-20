@@ -203,32 +203,11 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
     // Simulate delay
     await new Promise(r => setTimeout(r, 100));
 
-    // Extract token to identify current user
-    let currentUser: any = null;
-    const authHeader = init?.headers ? (init.headers as any).Authorization || (init.headers as any).authorization : null;
-    if (authHeader) {
-      const tokenUser = db.users?.find((u: any) => u.id === 'superadmin');
-      // In mock mode, any valid-looking token maps to superadmin (for backwards compat)
-      // But we also support a mock-token-user mechanism
-      if (authHeader === 'Bearer mock-token') {
-        currentUser = db.users?.find((u: any) => u.id === 'superadmin');
-      } else {
-        // Try to extract user from token context (stored as token user id)
-        const tokenParts = authHeader.replace('Bearer ', '').split(':');
-        if (tokenParts.length > 1) {
-          currentUser = db.users?.find((u: any) => u.id === tokenParts[1]);
-        }
-        if (!currentUser) {
-          currentUser = db.users?.find((u: any) => u.id === 'superadmin');
-        }
-      }
-    }
-
     // Auth
     if (url.includes('/api/auth/login') && method === 'POST') {
       const user = db.users?.find((u: any) => u.id === body?.userId && u.password === body?.password);
       if (user) {
-        return new Response(JSON.stringify({ token: 'mock-token:' + user.id, user }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({ token: 'mock-token', user }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
       return new Response(JSON.stringify({ error: 'Invalid User ID or Password' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
     }
@@ -294,18 +273,8 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
       if (method === 'GET') {
         if (id) {
           const ev = db.evaluations?.find((e: any) => e.id == id);
-          if (!ev) return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
-          // Server-side auth check: only superadmin or involved users can view
-          if (currentUser && currentUser.role !== 'superadmin' && currentUser.id !== ev.createdBy && currentUser.id !== ev.appraiser && currentUser.id !== ev.supporter && currentUser.id !== ev.employeeId) {
-            return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
-          }
-          return new Response(JSON.stringify(ev), { status: 200, headers: { 'Content-Type': 'application/json' } });
-        }
-        if (currentUser && currentUser.role !== 'superadmin') {
-          const filtered = (db.evaluations || []).filter((ev: any) =>
-            ev.createdBy === currentUser.id || ev.appraiser === currentUser.id || ev.supporter === currentUser.id || ev.employeeId === currentUser.id
-          );
-          return new Response(JSON.stringify(filtered), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          if (ev) return new Response(JSON.stringify(ev), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
         }
         return new Response(JSON.stringify(db.evaluations || []), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
