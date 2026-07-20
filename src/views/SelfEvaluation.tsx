@@ -38,7 +38,11 @@ export default function SelfEvaluation() {
   };
 
   const getPositionConfig = (position: string): PositionFormConfig | undefined => {
-    return configs?.find(c => c.position === position);
+    if (!configs || !position) return undefined;
+    const trimmed = position.trim();
+    const exact = configs.find(c => c.position === trimmed);
+    if (exact) return exact;
+    return configs.find(c => c.position.toLowerCase().trim() === trimmed.toLowerCase());
   };
 
   const getPositionStatus = (position: string) => {

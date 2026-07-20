@@ -109,7 +109,10 @@ export default function EvaluationForm() {
   // Check if there's a position-based form config for this evaluation's position
   const positionFormConfig = useMemo(() => {
     if (!positionConfigs || !formData.position) return null;
-    return positionConfigs.find(c => c.position === formData.position) || null;
+    const trimmed = formData.position.trim();
+    const exact = positionConfigs.find(c => c.position === trimmed);
+    if (exact) return exact;
+    return positionConfigs.find(c => c.position.toLowerCase().trim() === trimmed.toLowerCase()) || null;
   }, [positionConfigs, formData.position]);
 
   const currentCriteria = useMemo(() => {
