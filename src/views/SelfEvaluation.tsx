@@ -90,7 +90,7 @@ export default function SelfEvaluation() {
       }
 
       const evalType = 'management';
-      const weightScheme = empData?.evalModel || config.weightingScheme || '';
+      const weightScheme = config.weightingScheme || empData?.evalModel || '';
 
       const posActiveCriteria = config.criteria.filter(c => c.status === 'active');
 

@@ -252,13 +252,15 @@ export default function EvaluationForm() {
       if (res.ok) {
         const emp = await res.json();
         if (emp) {
+          const posConfig = positionConfigs?.find(c => c.position === emp.position);
+          const resolvedWeightScheme = posConfig?.weightingScheme || emp.evalModel || '';
           setFormData(prev => ({
             ...prev,
             employeeName: emp.name + (emp.khmerName ? ` (${emp.khmerName})` : ''),
             campus: emp.campus || prev.campus, department: emp.department || prev.department,
             position: emp.position || prev.position, category: emp.category || prev.category,
             appraiser: emp.supervisorId || prev.appraiser, supporter: emp.supporterId || prev.supporter,
-            weightScheme: emp.evalModel || prev.weightScheme, evalPeriod: emp.evalPeriod || prev.evalPeriod
+            weightScheme: resolvedWeightScheme, evalPeriod: emp.evalPeriod || prev.evalPeriod
           }));
         }
       }
