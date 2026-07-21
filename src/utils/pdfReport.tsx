@@ -332,7 +332,7 @@ function buildHtml(data: PdfReportData, pageNum: number): string {
       ${gaugeSvg}
     </div>
     <div class="chart-card">
-      <div class="chart-title">Section Breakdown</div>
+      <div class="chart-title">Section Performance</div>
       ${barChartHtml}
     </div>
   </div>

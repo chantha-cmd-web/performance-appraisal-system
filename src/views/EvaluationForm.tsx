@@ -11,7 +11,7 @@ import {
   canEditSelfEval, canEditSupervisorSection, canEditSupporterSection,
   canEditManagementSection, canEditAspSection, getNextStatus,
   getVisibleColumns, calculateOverallScore, computeSectionWeightedScore,
-  computeSectionSubtotals, getWorkflowStage, isStageLocked,
+  getWorkflowStage, isStageLocked,
   canRejectEvaluation, canReopenEvaluation, isAdmin, SectionInfo
 } from '../utils/rbac';
 import { sendStatusChangeNotification } from '../utils/notifications';
@@ -229,13 +229,17 @@ export default function EvaluationForm() {
     sectionInfo
   );
 
-  // ─── Section Subtotals for display ───
-  const superSectionSubtotals = useMemo(
-    () => sectionInfo ? computeSectionSubtotals('superScore', sectionInfo) : [],
+  // ─── Section Weighted Total Scores ───
+  const weightedSelf = useMemo(
+    () => sectionInfo ? computeSectionWeightedScore('selfScore', sectionInfo) : 0,
     [sectionInfo]
   );
-  const supporterSectionSubtotals = useMemo(
-    () => sectionInfo ? computeSectionSubtotals('supporterScore', sectionInfo) : [],
+  const weightedSuper = useMemo(
+    () => sectionInfo ? computeSectionWeightedScore('superScore', sectionInfo) : 0,
+    [sectionInfo]
+  );
+  const weightedSupporter = useMemo(
+    () => sectionInfo ? computeSectionWeightedScore('supporterScore', sectionInfo) : 0,
     [sectionInfo]
   );
 
@@ -576,45 +580,43 @@ export default function EvaluationForm() {
             </table>
           </div>
 
-          {/* ─── Section Weighted Subtotals ─── */}
-          {superSectionSubtotals.length > 0 && (
+          {/* ─── Total Score Calculations ─── */}
+          {sectionInfo && (
             <div className="mt-4 overflow-x-auto rounded-2xl border border-white/30 dark:border-white/[0.08]">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="bg-slate-50/80 dark:bg-white/[0.03] border-b border-slate-200/60 dark:border-white/[0.06]">
-                    <th className="px-4 sm:px-6 py-3 text-xs font-bold text-slate-500 uppercase" colSpan={2}>Section Breakdown / ការបែងចែកផ្នែក</th>
-                    {cols.super && <th className="px-3 sm:px-6 py-3 text-center text-xs font-bold text-indigo-500 uppercase">Supervisor Score</th>}
-                    {cols.supporter && <th className="px-3 sm:px-6 py-3 text-center text-xs font-bold text-teal-500 uppercase">Supporter Score</th>}
-                    <th className="px-3 sm:px-6 py-3 text-center text-xs font-bold text-slate-500 uppercase">Weight</th>
+                    <th className="px-4 sm:px-6 py-3 text-xs font-bold text-slate-500 uppercase" colSpan={2}>Total Score Calculations / ការគណនាពិន្ទុសរុប</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100/60 dark:divide-white/[0.04]">
-                  {superSectionSubtotals.map((ss, i) => {
-                    const suppSs = supporterSectionSubtotals[i];
-                    return (
-                      <tr key={ss.sectionId} className="hover:bg-slate-50/30 dark:hover:bg-white/[0.02] transition-colors">
-                        <td colSpan={2} className="px-4 sm:px-6 py-3">
-                          <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">{ss.khName}</div>
-                          <div className="text-slate-500 dark:text-slate-400 font-medium text-xs">{ss.name}</div>
-                        </td>
-                        {cols.super && (
-                          <td className="px-3 sm:px-6 py-3 text-center">
-                            <span className="font-bold text-indigo-600 dark:text-indigo-400 text-sm">{ss.total.toFixed(1)} / {ss.max}</span>
-                            <span className="text-xs text-slate-400 ml-1">({ss.pct.toFixed(1)}%)</span>
-                          </td>
-                        )}
-                        {cols.supporter && suppSs && (
-                          <td className="px-3 sm:px-6 py-3 text-center">
-                            <span className="font-bold text-teal-600 dark:text-teal-400 text-sm">{suppSs.total.toFixed(1)} / {suppSs.max}</span>
-                            <span className="text-xs text-slate-400 ml-1">({suppSs.pct.toFixed(1)}%)</span>
-                          </td>
-                        )}
-                        <td className="px-3 sm:px-6 py-3 text-center">
-                          <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">{ss.weight}%</span>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  <tr className="hover:bg-slate-50/30 dark:hover:bg-white/[0.02] transition-colors">
+                    <td className="px-4 sm:px-6 py-3">
+                      <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">Self Score (Total)</div>
+                      <div className="text-slate-500 dark:text-slate-400 font-medium text-xs">ពិន្ទុដោយខ្លួនឯង</div>
+                    </td>
+                    <td className="px-4 sm:px-6 py-3 text-center">
+                      <span className="font-extrabold text-slate-700 dark:text-slate-300 text-lg">{weightedSelf.toFixed(1)}%</span>
+                    </td>
+                  </tr>
+                  <tr className="hover:bg-slate-50/30 dark:hover:bg-white/[0.02] transition-colors">
+                    <td className="px-4 sm:px-6 py-3">
+                      <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">Supervisor Score (Total)</div>
+                      <div className="text-slate-500 dark:text-slate-400 font-medium text-xs">ពិន្ទុអ្នកគ្រប់គ្រង</div>
+                    </td>
+                    <td className="px-4 sm:px-6 py-3 text-center">
+                      <span className="font-extrabold text-indigo-600 dark:text-indigo-400 text-lg">{weightedSuper.toFixed(1)}%</span>
+                    </td>
+                  </tr>
+                  <tr className="hover:bg-slate-50/30 dark:hover:bg-white/[0.02] transition-colors">
+                    <td className="px-4 sm:px-6 py-3">
+                      <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">Supporter Score (Total)</div>
+                      <div className="text-slate-500 dark:text-slate-400 font-medium text-xs">ពិន្ទុអ្នកគាំទ្រ</div>
+                    </td>
+                    <td className="px-4 sm:px-6 py-3 text-center">
+                      <span className="font-extrabold text-teal-600 dark:text-teal-400 text-lg">{weightedSupporter.toFixed(1)}%</span>
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
