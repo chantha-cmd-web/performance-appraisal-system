@@ -583,10 +583,11 @@ function getStyles(): string {
 
   .page {
     width: 210mm;
-    min-height: 297mm;
+    height: 297mm;
     padding: 12mm 15mm;
     position: relative;
     page-break-after: always;
+    page-break-inside: avoid;
     background: white;
     overflow: hidden;
   }
@@ -959,6 +960,7 @@ function getStyles(): string {
     border-radius: 8px;
     overflow: hidden;
     font-size: 10px;
+    page-break-inside: avoid;
   }
   .table-header-row {
     background: #6366f1;
@@ -989,6 +991,7 @@ function getStyles(): string {
   }
   .section-header {
     background: #f1f5f9;
+    page-break-inside: avoid;
   }
   .section-header-cell {
     padding: 7px 10px;
@@ -1098,12 +1101,14 @@ function getStyles(): string {
     grid-template-columns: 1fr 1fr;
     gap: 12px;
     margin-bottom: 16px;
+    page-break-inside: avoid;
   }
   .comment-card {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 10px;
     padding: 12px;
+    page-break-inside: avoid;
   }
   .comment-header {
     display: flex;
@@ -1154,6 +1159,7 @@ function getStyles(): string {
     border-radius: 10px;
     padding: 14px;
     margin-bottom: 18px;
+    page-break-inside: avoid;
   }
   .final-rec-title {
     font-size: 11px;
@@ -1172,6 +1178,7 @@ function getStyles(): string {
     display: flex;
     gap: 12px;
     margin-bottom: 20px;
+    page-break-inside: avoid;
   }
   .sig-card {
     flex: 1;
@@ -1220,44 +1227,42 @@ function getStyles(): string {
 export async function generatePdfReport(data: PdfReportData): Promise<void> {
   const html2pdf = (await import('html2pdf.js')).default;
 
-  const totalPages = 5;
-  let fullHtml = '';
-  for (let i = 1; i <= totalPages; i++) {
-    const pageHtml = buildHtml(data, i);
-    fullHtml += pageHtml;
-  }
+  let fullHtml = buildHtml(data, 1);
 
-  fullHtml = fullHtml.replace(/\{\{PAGE_NUM\}\}/g, (match, offset) => {
-    const pageIndex = fullHtml.substring(0, offset).split('<div class="page').length - 1;
-    return String(pageIndex);
+  let pageNum = 0;
+  fullHtml = fullHtml.replace(/\{\{PAGE_NUM\}\}/g, () => {
+    pageNum++;
+    return String(pageNum);
   });
 
   const container = document.createElement('div');
-  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:210mm;background:white;z-index:-1;';
+  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:white;z-index:-1;';
   container.innerHTML = fullHtml;
   document.body.appendChild(container);
 
-  await new Promise(r => setTimeout(r, 800));
+  await new Promise(r => setTimeout(r, 1000));
 
   const filename = `Performance_Report_${data.evaluation.employeeName.replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
 
+  const opt = {
+    margin: 0,
+    filename,
+    image: { type: 'jpeg', quality: 0.95 },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      letterRendering: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      width: 794,
+      windowWidth: 794,
+    },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
+    pagebreak: { mode: ['css'] },
+  };
+
   await (html2pdf() as any)
-    .set({
-      margin: 0,
-      filename,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: {
-        scale: 2,
-        useCORS: true,
-        letterRendering: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        width: 210 * 3.78,
-        height: 297 * 3.78,
-      },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-    })
+    .set(opt)
     .from(container)
     .save();
 
