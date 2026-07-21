@@ -208,7 +208,7 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
     const token = authHeader && typeof authHeader === 'string' ? authHeader.replace('Bearer ', '') : null;
     const currentUser = token ? db.users?.find((u: any) => u.id === token || token === 'mock-token') : null;
 
-    const isAdminUser = currentUser && (currentUser.role === 'superadmin' || currentUser.role === 'admin');
+    const isAdminUser = currentUser && currentUser.role === 'superadmin';
 
     // Auth
     if (url.includes('/api/auth/login') && method === 'POST') {

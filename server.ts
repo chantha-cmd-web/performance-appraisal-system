@@ -424,7 +424,7 @@ app.get('/api/notifications', authenticateToken, (req, res) => {
     }
 
     // Admin notifications
-    if (req.user!.role === 'superadmin' || req.user!.role === 'admin') {
+    if (req.user!.role === 'superadmin') {
       const allPending = db.prepare('SELECT COUNT(*) as count FROM evaluations WHERE status NOT IN ("Completed", "Approved")').get() as any;
       if (allPending && allPending.count > 0) {
         notifications.push({
@@ -561,7 +561,7 @@ app.get('/api/evaluations/:id', authenticateToken, (req, res) => {
     const evalRecord = db.prepare('SELECT * FROM evaluations WHERE id = ?').get(id) as any;
     if (!evalRecord) return res.status(404).json({ error: 'Evaluation not found' });
 
-    if (req.user!.role !== 'superadmin' && req.user!.role !== 'admin' && !isRelatedToEvaluation(req.user, evalRecord)) {
+    if (req.user!.role !== 'superadmin' && !isRelatedToEvaluation(req.user, evalRecord)) {
       logAudit(req.user!.id, req.user!.name, 'unauthorized_access', `Attempted to view evaluation #${id}`);
       return res.status(403).json({ error: 'Access denied. You can only view your own evaluations.' });
     }
@@ -580,7 +580,7 @@ app.post('/api/evaluations', authenticateToken, (req, res) => {
   const createdBy = req.user!.id;
   const createdByName = req.user!.name;
 
-  if (req.user!.role !== 'superadmin' && req.user!.role !== 'admin' && data.employeeId !== req.user!.id && data.appraiser !== req.user!.id && data.supporter !== req.user!.id) {
+  if (req.user!.role !== 'superadmin' && data.employeeId !== req.user!.id && data.appraiser !== req.user!.id && data.supporter !== req.user!.id) {
     logAudit(req.user!.id, req.user!.name, 'unauthorized_access', `Attempted to create evaluation for employee ${data.employeeId}`);
     return res.status(403).json({ error: 'Access denied. You can only create evaluations for yourself or where you are assigned.' });
   }
@@ -700,13 +700,13 @@ app.get('/api/employees', authenticateToken, (req, res) => {
     const { id } = req.query;
     if (id) {
         const employee = db.prepare('SELECT * FROM employees WHERE id = ?').get(id) as any;
-        if (employee && req.user!.role !== 'superadmin' && req.user!.role !== 'admin' && employee.id !== req.user!.id) {
+        if (employee && req.user!.role !== 'superadmin' && employee.id !== req.user!.id) {
           logAudit(req.user!.id, req.user!.name, 'unauthorized_access', `Attempted to view employee ${id}`);
           return res.status(403).json({ error: 'Access denied.' });
         }
         return res.json(employee || null);
     }
-    if (req.user!.role === 'superadmin' || req.user!.role === 'admin') {
+    if (req.user!.role === 'superadmin') {
       const employees = db.prepare('SELECT * FROM employees ORDER BY name ASC').all();
       res.json(employees);
     } else {

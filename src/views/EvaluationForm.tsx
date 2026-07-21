@@ -12,7 +12,7 @@ import {
   canEditManagementSection, canEditAspSection, getNextStatus,
   getVisibleColumns, calculateOverallScore, computeSectionWeightedScore,
   getWorkflowStage, isStageLocked,
-  canRejectEvaluation, canReopenEvaluation, isAdmin, SectionInfo
+  canRejectEvaluation, canReopenEvaluation, isSuperAdmin, SectionInfo
 } from '../utils/rbac';
 import { sendStatusChangeNotification } from '../utils/notifications';
 import { generatePdfReport } from '../utils/pdfReport';
@@ -273,7 +273,7 @@ export default function EvaluationForm() {
   const canEditAsp = canEditAspSection(user, isViewOnly);
   const canReject = canRejectEvaluation(user, { appraiser: formData.appraiser, supporter: formData.supporter, status: formData.status });
   const canReopen = canReopenEvaluation(user, { status: formData.status });
-  const superadminEdit = isAdmin(user) && !isViewOnly;
+  const superadminEdit = isSuperAdmin(user) && !isViewOnly;
 
   // ─── Status & Workflow ───
   const nextStatus = (action: 'save' | 'submit' | 'reject' | 'reopen') => getNextStatus(formData.status, action, cols.supporter);

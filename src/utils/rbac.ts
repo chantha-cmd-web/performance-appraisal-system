@@ -23,21 +23,22 @@ export const canAccessAdminPage = (user: User | null): boolean =>
 
 // Data export / import / admin functions
 export const canExportData = (user: User | null): boolean =>
-  isAdmin(user);
+  isSuperAdmin(user);
 
 export const canManageUsers = (user: User | null): boolean =>
   isSuperAdmin(user);
 
 // Can view all reports (vs only own)
 export const canViewAllReports = (user: User | null): boolean =>
-  isAdmin(user);
+  isSuperAdmin(user);
 
 // Dashboard: which evaluations can this user see?
 export function filterEvaluationsByRole(evals: Evaluation[], user: User | null): Evaluation[] {
   if (!user) return [];
-  if (isAdmin(user)) return evals;
+  if (isSuperAdmin(user)) return evals;
 
   return evals.filter(ev => {
+    if (user.role === 'admin') return ev.createdBy === user.id || ev.employeeId === user.id;
     if (user.role === 'supervisor') return ev.appraiser === user.id;
     if (user.role === 'supporter') return ev.supporter === user.id;
     if (user.role === 'employee') return ev.employeeId === user.id;
@@ -47,12 +48,12 @@ export function filterEvaluationsByRole(evals: Evaluation[], user: User | null):
 
 // Dashboard: can this user see the evaluator column?
 export const canSeeEvaluatorColumn = (user: User | null): boolean =>
-  isAdmin(user);
+  isSuperAdmin(user);
 
 // Dashboard action buttons
 export function canEditEvaluation(ev: Evaluation, user: User | null): boolean {
   if (!user) return false;
-  if (isAdmin(user)) return true;
+  if (isSuperAdmin(user)) return true;
   const status = ev.status || 'Draft';
   if (ev.createdBy === user.id && status === 'Draft') return true;
   if (ev.employeeId === user.id && (status === 'Draft' || status === 'Self Evaluation Pending' || status === 'Returned to Employee')) return true;
@@ -63,7 +64,7 @@ export function canEditEvaluation(ev: Evaluation, user: User | null): boolean {
 
 export function canDeleteEvaluation(ev: Evaluation, user: User | null): boolean {
   if (!user) return false;
-  return isAdmin(user) || ev.createdBy === user.id;
+  return isSuperAdmin(user) || ev.createdBy === user.id;
 }
 
 export function canEvaluate(ev: Evaluation, user: User | null): boolean {
@@ -117,28 +118,28 @@ export function canEditSupporterSection(
   return false;
 }
 
-// Management section: only admin/superadmin can edit (management_100 scheme)
+// Management section: only superadmin can edit (management_100 scheme)
 export function canEditManagementSection(
   user: User | null,
   isViewOnly: boolean
 ): boolean {
   if (isViewOnly) return false;
-  return isAdmin(user);
+  return isSuperAdmin(user);
 }
 
-// ASP section: only admin/superadmin can edit (asp_100 scheme)
+// ASP section: only superadmin can edit (asp_100 scheme)
 export function canEditAspSection(
   user: User | null,
   isViewOnly: boolean
 ): boolean {
   if (isViewOnly) return false;
-  return isAdmin(user);
+  return isSuperAdmin(user);
 }
 
 // Can this user create a new evaluation?
 export function canCreateEvaluation(user: User | null): boolean {
   if (!user) return false;
-  if (isAdmin(user)) return true;
+  if (isSuperAdmin(user)) return true;
   if (user.role === 'employee') return true;
   return false;
 }
@@ -362,7 +363,7 @@ export function isStageLocked(
       return !(status === 'Waiting for Supporter' && user?.id === evalData.supporter);
     case 'management':
     case 'asp':
-      return status === 'Completed' || status === 'Approved' || !isAdmin(user);
+      return status === 'Completed' || status === 'Approved' || !isSuperAdmin(user);
     default:
       return true;
   }
