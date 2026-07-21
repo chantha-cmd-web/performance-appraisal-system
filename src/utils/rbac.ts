@@ -1,4 +1,4 @@
-import { User, Evaluation } from '../types';
+import { User, Evaluation, PositionFormConfig, CriteriaScore } from '../types';
 
 export type Role = 'superadmin' | 'admin' | 'supervisor' | 'supporter' | 'employee';
 
@@ -143,37 +143,118 @@ export function getVisibleColumns(weightScheme: string) {
   };
 }
 
-// Calculate the overall score based on the weighting scheme
+export interface SectionInfo {
+  sections: Array<{ id: string; weight: number; name?: string; khName?: string }>;
+  criteria: Array<{ id: number; sectionId?: string; max: number }>;
+  criteriaScores: Array<CriteriaScore>;
+}
+
+// Compute a section-weighted score for a single evaluator column.
+// Formula per spec:
+//   Section % = (section_sum / section_max) × 100
+//   Evaluator Total = Σ (section_pct × section_weight / 100)
+// Result is on a 0–100 scale.
+export function computeSectionWeightedScore(
+  evaluatorColumn: 'selfScore' | 'superScore' | 'supporterScore' | 'managementScore' | 'aspScore',
+  sectionInfo: SectionInfo
+): number {
+  const { sections, criteria, criteriaScores } = sectionInfo;
+  if (!sections || sections.length === 0) return 0;
+
+  let weightedTotal = 0;
+  for (const section of sections) {
+    const sectionCriteria = criteria.filter(c => c.sectionId === section.id);
+    if (sectionCriteria.length === 0) continue;
+    const sectionMax = sectionCriteria.reduce((sum, c) => sum + (c.max || 10), 0);
+    if (sectionMax === 0) continue;
+
+    const sectionSum = criteriaScores
+      .filter(cs => sectionCriteria.some(c => c.id === cs.criteriaId))
+      .reduce((sum, cs) => sum + ((cs as any)[evaluatorColumn] || 0), 0);
+
+    const sectionPct = (sectionSum / sectionMax) * 100;
+    weightedTotal += sectionPct * (section.weight / 100);
+  }
+
+  return weightedTotal;
+}
+
+// Compute section-level subtotals for display.
+// Returns an array of { sectionId, name, khName, weight, total, max, pct } per evaluator.
+export function computeSectionSubtotals(
+  evaluatorColumn: 'selfScore' | 'superScore' | 'supporterScore' | 'managementScore' | 'aspScore',
+  sectionInfo: SectionInfo
+): Array<{ sectionId: string; name: string; khName: string; weight: number; total: number; max: number; pct: number }> {
+  const { sections, criteria, criteriaScores } = sectionInfo;
+  if (!sections || sections.length === 0) return [];
+
+  return sections.map(section => {
+    const sectionCriteria = criteria.filter(c => c.sectionId === section.id);
+    const sectionMax = sectionCriteria.reduce((sum, c) => sum + (c.max || 10), 0);
+    const sectionSum = criteriaScores
+      .filter(cs => sectionCriteria.some(c => c.id === cs.criteriaId))
+      .reduce((sum, cs) => sum + ((cs as any)[evaluatorColumn] || 0), 0);
+    const sectionPct = sectionMax > 0 ? (sectionSum / sectionMax) * 100 : 0;
+    return {
+      sectionId: section.id,
+      name: section.name || section.id,
+      khName: section.khName || section.name || section.id,
+      weight: section.weight,
+      total: sectionSum,
+      max: sectionMax,
+      pct: sectionPct,
+    };
+  });
+}
+
+// Calculate the overall score based on the weighting scheme.
+// When sectionInfo is provided, each evaluator's score is computed with section-level weights
+// (Personal Characteristic at configured weight, Evaluation Skill at configured weight).
+// Then evaluator totals are combined using the condition weight (60/40, 50/50, 100, etc.).
 export function calculateOverallScore(
   weightScheme: string,
   totals: { self: number; super: number; supporter: number; management: number; asp: number },
   maxPossible: number,
-  peerAvgBonus: number = 0
+  peerAvgBonus: number = 0,
+  sectionInfo?: SectionInfo
 ): number {
+  let superPct: number;
+  let supporterPct: number;
+  let managementPct: number;
+  let aspPct: number;
+
+  if (sectionInfo && sectionInfo.sections.length > 0 && sectionInfo.criteria.length > 0) {
+    superPct = computeSectionWeightedScore('superScore', sectionInfo);
+    supporterPct = computeSectionWeightedScore('supporterScore', sectionInfo);
+    managementPct = computeSectionWeightedScore('managementScore', sectionInfo);
+    aspPct = computeSectionWeightedScore('aspScore', sectionInfo);
+  } else {
+    // Fallback: simple normalization when no section info available
+    superPct = maxPossible > 0 ? (totals.super / maxPossible) * 100 : 0;
+    supporterPct = maxPossible > 0 ? (totals.supporter / maxPossible) * 100 : 0;
+    managementPct = maxPossible > 0 ? (totals.management / maxPossible) * 100 : 0;
+    aspPct = maxPossible > 0 ? (totals.asp / maxPossible) * 100 : 0;
+  }
+
   let raw = 0;
   switch (weightScheme) {
     case 'campus_60_40':
-      raw = (totals.super * 0.6) + (totals.supporter * 0.4);
+      raw = superPct * 0.6 + supporterPct * 0.4;
       break;
     case 'campus_50_50':
-      raw = (totals.super * 0.5) + (totals.supporter * 0.5);
+      raw = superPct * 0.5 + supporterPct * 0.5;
       break;
     case 'management_100':
-      raw = totals.management;
+      raw = managementPct;
       break;
     case 'asp_100':
-      raw = totals.asp;
+      raw = aspPct;
       break;
     case 'campus_100':
     case 'central_100':
     default:
-      raw = totals.super;
+      raw = superPct;
       break;
-  }
-
-  // Normalize to 100
-  if (maxPossible > 0) {
-    raw = (raw / maxPossible) * 100;
   }
 
   // Peer feedback bonus (max ~5 points)

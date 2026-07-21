@@ -10,8 +10,9 @@ import { cn } from '../lib/utils';
 import {
   canEditSelfEval, canEditSupervisorSection, canEditSupporterSection,
   canEditManagementSection, canEditAspSection, getNextStatus,
-  getVisibleColumns, calculateOverallScore, getWorkflowStage, isStageLocked,
-  canRejectEvaluation, canReopenEvaluation, isAdmin
+  getVisibleColumns, calculateOverallScore, computeSectionWeightedScore,
+  computeSectionSubtotals, getWorkflowStage, isStageLocked,
+  canRejectEvaluation, canReopenEvaluation, isAdmin, SectionInfo
 } from '../utils/rbac';
 import { sendStatusChangeNotification } from '../utils/notifications';
 import { generatePdfReport } from '../utils/pdfReport';
@@ -202,12 +203,40 @@ export default function EvaluationForm() {
     ? (peerFeedbacks.reduce((sum, p) => sum + p.score, 0) / peerFeedbacks.length) * 0.5
     : 0;
 
+  // ─── Section Info for Weighted Calculation ───
+  const activeSections = useMemo(() => {
+    if (!positionFormConfig) return [];
+    return positionFormConfig.sections
+      .filter(s => s.status === 'active')
+      .sort((a, b) => a.displayOrder - b.displayOrder);
+  }, [positionFormConfig]);
+
+  const sectionInfo: SectionInfo | undefined = useMemo(() => {
+    if (activeSections.length === 0 || currentCriteria.length === 0) return undefined;
+    return {
+      sections: activeSections,
+      criteria: currentCriteria.map(c => ({ id: c.id, sectionId: (c as any).sectionId, max: c.max || 10 })),
+      criteriaScores,
+    };
+  }, [activeSections, currentCriteria, criteriaScores]);
+
   // ─── Overall Score Calculation ───
   const overallScore = calculateOverallScore(
     formData.weightScheme,
     { self: totalSelf, super: totalSuper, supporter: totalSupporter, management: totalManagement, asp: totalAsp },
     maxPossibleScore,
-    peerAvgBonus
+    peerAvgBonus,
+    sectionInfo
+  );
+
+  // ─── Section Subtotals for display ───
+  const superSectionSubtotals = useMemo(
+    () => sectionInfo ? computeSectionSubtotals('superScore', sectionInfo) : [],
+    [sectionInfo]
+  );
+  const supporterSectionSubtotals = useMemo(
+    () => sectionInfo ? computeSectionSubtotals('supporterScore', sectionInfo) : [],
+    [sectionInfo]
   );
 
   const fetchEmployeeData = async (empId: string) => {
@@ -546,6 +575,50 @@ export default function EvaluationForm() {
               </tfoot>
             </table>
           </div>
+
+          {/* ─── Section Weighted Subtotals ─── */}
+          {superSectionSubtotals.length > 0 && (
+            <div className="mt-4 overflow-x-auto rounded-2xl border border-white/30 dark:border-white/[0.08]">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="bg-slate-50/80 dark:bg-white/[0.03] border-b border-slate-200/60 dark:border-white/[0.06]">
+                    <th className="px-4 sm:px-6 py-3 text-xs font-bold text-slate-500 uppercase" colSpan={2}>Section Breakdown / ការបែងចែកផ្នែក</th>
+                    {cols.super && <th className="px-3 sm:px-6 py-3 text-center text-xs font-bold text-indigo-500 uppercase">Supervisor Score</th>}
+                    {cols.supporter && <th className="px-3 sm:px-6 py-3 text-center text-xs font-bold text-teal-500 uppercase">Supporter Score</th>}
+                    <th className="px-3 sm:px-6 py-3 text-center text-xs font-bold text-slate-500 uppercase">Weight</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100/60 dark:divide-white/[0.04]">
+                  {superSectionSubtotals.map((ss, i) => {
+                    const suppSs = supporterSectionSubtotals[i];
+                    return (
+                      <tr key={ss.sectionId} className="hover:bg-slate-50/30 dark:hover:bg-white/[0.02] transition-colors">
+                        <td colSpan={2} className="px-4 sm:px-6 py-3">
+                          <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">{ss.khName}</div>
+                          <div className="text-slate-500 dark:text-slate-400 font-medium text-xs">{ss.name}</div>
+                        </td>
+                        {cols.super && (
+                          <td className="px-3 sm:px-6 py-3 text-center">
+                            <span className="font-bold text-indigo-600 dark:text-indigo-400 text-sm">{ss.total.toFixed(1)} / {ss.max}</span>
+                            <span className="text-xs text-slate-400 ml-1">({ss.pct.toFixed(1)}%)</span>
+                          </td>
+                        )}
+                        {cols.supporter && suppSs && (
+                          <td className="px-3 sm:px-6 py-3 text-center">
+                            <span className="font-bold text-teal-600 dark:text-teal-400 text-sm">{suppSs.total.toFixed(1)} / {suppSs.max}</span>
+                            <span className="text-xs text-slate-400 ml-1">({suppSs.pct.toFixed(1)}%)</span>
+                          </td>
+                        )}
+                        <td className="px-3 sm:px-6 py-3 text-center">
+                          <span className="font-bold text-slate-700 dark:text-slate-300 text-sm">{ss.weight}%</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* ─── RBAC Info Banner ─── */}
           {editId && !isViewOnly && (!isCompleted || superadminEdit) && (

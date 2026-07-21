@@ -1,5 +1,5 @@
 import { Evaluation, PositionFormConfig, CriteriaScore, WEIGHTING_SCHEMES } from '../types';
-import { getVisibleColumns, calculateOverallScore } from './rbac';
+import { getVisibleColumns, calculateOverallScore, SectionInfo } from './rbac';
 import { format } from 'date-fns';
 
 interface PdfReportData {
@@ -20,10 +20,34 @@ function getWeightLabel(scheme: string) {
   return found ? found.label : scheme;
 }
 
+function recalcOverallScore(ev: Evaluation, positionFormConfig?: PositionFormConfig | null): number {
+  const sections = positionFormConfig?.sections?.filter(s => s.status === 'active') || [];
+  const criteria = positionFormConfig?.criteria?.filter(c => c.status === 'active') || [];
+  if (sections.length === 0 || criteria.length === 0) return ev.overallScore;
+
+  const sectionInfo: SectionInfo = {
+    sections,
+    criteria: criteria.map(c => ({ id: c.id, sectionId: c.sectionId, max: c.max || 10 })),
+    criteriaScores: ev.criteriaScores || [],
+  };
+
+  const totals = { self: 0, super: 0, supporter: 0, management: 0, asp: 0 };
+  (ev.criteriaScores || []).forEach(cs => {
+    totals.self += cs.selfScore || 0;
+    totals.super += cs.superScore || 0;
+    totals.supporter += cs.supporterScore || 0;
+    totals.management += cs.managementScore || 0;
+    totals.asp += cs.aspScore || 0;
+  });
+
+  return calculateOverallScore(ev.weightScheme, totals, 0, 0, sectionInfo);
+}
+
 function buildHtml(data: PdfReportData, pageNum: number): string {
   const { evaluation: ev, positionFormConfig } = data;
   const now = format(new Date(), 'dd MMMM yyyy');
-  const rating = getRating(ev.overallScore);
+  const overallScore = recalcOverallScore(ev, positionFormConfig);
+  const rating = getRating(overallScore);
   const cols = getVisibleColumns(ev.weightScheme);
 
   const sections = positionFormConfig?.sections
@@ -56,7 +80,7 @@ function buildHtml(data: PdfReportData, pageNum: number): string {
   const showManagement = cols.management;
   const colCount = 3 + (showSuper ? 1 : 0) + (showSupporter ? 1 : 0) + (showManagement ? 1 : 0) + 1;
 
-  const gaugeScore = ev.overallScore;
+  const gaugeScore = overallScore;
   const gaugeAngle = (gaugeScore / 100) * 180;
   const gaugeStart = { x: 80, y: 105 };
   const gaugeRadius = 45;
@@ -282,7 +306,7 @@ function buildHtml(data: PdfReportData, pageNum: number): string {
   <div class="summary-cards">
     <div class="summary-card summary-card-score">
       <div class="summary-card-label">Overall Score</div>
-      <div class="summary-card-value">${ev.overallScore.toFixed(1)}</div>
+      <div class="summary-card-value">${overallScore.toFixed(1)}</div>
       <div class="summary-card-sub">out of 100</div>
     </div>
     <div class="summary-card" style="background:${rating.bg};border-color:${rating.border};">
@@ -292,7 +316,7 @@ function buildHtml(data: PdfReportData, pageNum: number): string {
     </div>
     <div class="summary-card summary-card-pct">
       <div class="summary-card-label">Percentage</div>
-      <div class="summary-card-value">${ev.overallScore.toFixed(1)}%</div>
+      <div class="summary-card-value">${overallScore.toFixed(1)}%</div>
       <div class="summary-card-sub">completion</div>
     </div>
     <div class="summary-card summary-card-status">
@@ -351,7 +375,7 @@ function buildHtml(data: PdfReportData, pageNum: number): string {
     </div>
     <div class="weight-summary-item">
       <span class="weight-summary-label">Overall Score:</span>
-      <span class="weight-summary-val" style="color:${rating.color};font-weight:800;">${ev.overallScore.toFixed(1)}% (${rating.label})</span>
+      <span class="weight-summary-val" style="color:${rating.color};font-weight:800;">${overallScore.toFixed(1)}% (${rating.label})</span>
     </div>
   </div>
 
@@ -469,10 +493,10 @@ function buildHtml(data: PdfReportData, pageNum: number): string {
     <div>
       <div class="final-rec-title">Final Recommendation</div>
       <div class="final-rec-text">
-        Based on the evaluation results, the employee has achieved an overall score of <strong>${ev.overallScore.toFixed(1)}</strong> (${rating.label} / ${rating.kh}).
-        ${ev.overallScore >= 85 ? 'The employee demonstrates excellent performance and is recommended for recognition.' :
-          ev.overallScore >= 75 ? 'The employee shows very good performance with areas for continued growth.' :
-          ev.overallScore >= 60 ? 'The employee meets expectations with some areas needing improvement.' :
+        Based on the evaluation results, the employee has achieved an overall score of <strong>${overallScore.toFixed(1)}</strong> (${rating.label} / ${rating.kh}).
+        ${overallScore >= 85 ? 'The employee demonstrates excellent performance and is recommended for recognition.' :
+          overallScore >= 75 ? 'The employee shows very good performance with areas for continued growth.' :
+          overallScore >= 60 ? 'The employee meets expectations with some areas needing improvement.' :
           'The employee requires targeted support and development in key areas.'}
       </div>
     </div>
