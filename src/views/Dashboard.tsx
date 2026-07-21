@@ -469,7 +469,7 @@ export default function Dashboard() {
                   <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
-                    placeholder={isSuperAdmin(user) ? "Search by Name, Staff ID, Position or Campus..." : "Search your evaluations..."}
+                    placeholder={isSuperAdmin(user) ? "Search by Name, Staff ID, Position or Campus..." : user?.role === 'admin' ? "Search your assigned evaluations..." : "Search your evaluations..."}
                     className="w-full pl-11 pr-4 py-3 glass-input rounded-2xl text-sm font-medium text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-all"
                     value={searchQuery}
                     onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}

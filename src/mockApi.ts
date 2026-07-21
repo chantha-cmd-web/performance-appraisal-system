@@ -250,7 +250,7 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
         const id = new URL(url, window.location.origin).searchParams.get('id');
         if (id) {
            const emp = db.employees?.find((e: any) => e.id === id);
-           if (emp && !isAdminUser && currentUser && emp.id !== currentUser.id) {
+           if (emp && !isAdminUser && currentUser && emp.id !== currentUser.id && emp.supervisorId !== currentUser.id && emp.supporterId !== currentUser.id) {
              return new Response(JSON.stringify(null), { status: 200, headers: { 'Content-Type': 'application/json' } });
            }
            return new Response(JSON.stringify(emp || null), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -258,8 +258,8 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
         if (isAdminUser) {
           return new Response(JSON.stringify(db.employees || []), { status: 200, headers: { 'Content-Type': 'application/json' } });
         }
-        const ownEmp = db.employees?.filter((e: any) => currentUser && e.id === currentUser.id) || [];
-        return new Response(JSON.stringify(ownEmp), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        const assignedEmps = db.employees?.filter((e: any) => currentUser && (e.supervisorId === currentUser.id || e.supporterId === currentUser.id)) || [];
+        return new Response(JSON.stringify(assignedEmps), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
       if (method === 'POST') {
         if (!isAdminUser) {

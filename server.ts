@@ -700,7 +700,7 @@ app.get('/api/employees', authenticateToken, (req, res) => {
     const { id } = req.query;
     if (id) {
         const employee = db.prepare('SELECT * FROM employees WHERE id = ?').get(id) as any;
-        if (employee && req.user!.role !== 'superadmin' && employee.id !== req.user!.id) {
+        if (employee && req.user!.role !== 'superadmin' && req.user!.role !== 'admin' && employee.id !== req.user!.id) {
           logAudit(req.user!.id, req.user!.name, 'unauthorized_access', `Attempted to view employee ${id}`);
           return res.status(403).json({ error: 'Access denied.' });
         }
@@ -708,6 +708,9 @@ app.get('/api/employees', authenticateToken, (req, res) => {
     }
     if (req.user!.role === 'superadmin') {
       const employees = db.prepare('SELECT * FROM employees ORDER BY name ASC').all();
+      res.json(employees);
+    } else if (req.user!.role === 'admin') {
+      const employees = db.prepare('SELECT * FROM employees WHERE supervisorId = ? OR supporterId = ? ORDER BY name ASC').all(req.user!.id, req.user!.id);
       res.json(employees);
     } else {
       const employee = db.prepare('SELECT * FROM employees WHERE id = ?').get(req.user!.id);

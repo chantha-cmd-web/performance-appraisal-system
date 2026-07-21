@@ -38,7 +38,7 @@ export function filterEvaluationsByRole(evals: Evaluation[], user: User | null):
   if (isSuperAdmin(user)) return evals;
 
   return evals.filter(ev => {
-    if (user.role === 'admin') return ev.createdBy === user.id || ev.employeeId === user.id;
+    if (user.role === 'admin') return ev.appraiser === user.id || ev.supporter === user.id;
     if (user.role === 'supervisor') return ev.appraiser === user.id;
     if (user.role === 'supporter') return ev.supporter === user.id;
     if (user.role === 'employee') return ev.employeeId === user.id;
