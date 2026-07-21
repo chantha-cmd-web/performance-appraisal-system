@@ -18,7 +18,7 @@ import {
 } from 'recharts';
 import {
   filterEvaluationsByRole, canSeeEvaluatorColumn, canEditEvaluation,
-  canDeleteEvaluation, canEvaluate
+  canDeleteEvaluation, canEvaluate, canExportData, isAdmin
 } from '../utils/rbac';
 import { motion, AnimatePresence } from 'motion/react';
 import { generatePdfReport } from '../utils/pdfReport';
@@ -449,11 +449,11 @@ export default function Dashboard() {
 
                 {/* Action Buttons */}
                 <div className="flex flex-wrap items-center gap-2 print:hidden">
-                  <ToolbarBtn icon={<FileDown size={16} />} label="JSON" onClick={handleExportJSON} variant="slate" />
-                  <ToolbarBtn icon={<Download size={16} />} label="Excel" onClick={handleExportExcel} variant="emerald" />
+                  {canExportData(user) && <ToolbarBtn icon={<FileDown size={16} />} label="JSON" onClick={handleExportJSON} variant="slate" />}
+                  {canExportData(user) && <ToolbarBtn icon={<Download size={16} />} label="Excel" onClick={handleExportExcel} variant="emerald" />}
                   <ToolbarBtn icon={<FileDown size={16} />} label="PDF" onClick={handlePrint} variant="indigo" />
-                  <ToolbarBtn icon={<Upload size={16} />} label="Import" onClick={handleImport} variant="blue" />
-                  <ToolbarBtn icon={<Send size={16} />} label="Telegram" onClick={handleBulkTelegram} variant="purple" />
+                  {canExportData(user) && <ToolbarBtn icon={<Upload size={16} />} label="Import" onClick={handleImport} variant="blue" />}
+                  {canExportData(user) && <ToolbarBtn icon={<Send size={16} />} label="Telegram" onClick={handleBulkTelegram} variant="purple" />}
                   <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1" />
                   <ToolbarBtn icon={<RefreshCw size={16} />} label="Refresh" onClick={handleRefresh} variant="slate" spinning={refreshing} />
                   <ToolbarBtn icon={<Trash2 size={16} />} label="Clear" onClick={clearFilters} variant="rose" disabled={!hasActiveFilters} />
@@ -469,7 +469,7 @@ export default function Dashboard() {
                   <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Search by Name, Staff ID, Position or Campus..."
+                    placeholder={isAdmin(user) ? "Search by Name, Staff ID, Position or Campus..." : "Search your evaluations..."}
                     className="w-full pl-11 pr-4 py-3 glass-input rounded-2xl text-sm font-medium text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition-all"
                     value={searchQuery}
                     onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}

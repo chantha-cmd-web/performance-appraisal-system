@@ -203,11 +203,19 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
     // Simulate delay
     await new Promise(r => setTimeout(r, 100));
 
+    // Extract current user from Authorization header
+    const authHeader = init?.headers && (typeof init.headers === 'object' ? (init.headers as any)?.Authorization : null);
+    const token = authHeader && typeof authHeader === 'string' ? authHeader.replace('Bearer ', '') : null;
+    const currentUser = token ? db.users?.find((u: any) => u.id === token || token === 'mock-token') : null;
+
+    const isAdminUser = currentUser && (currentUser.role === 'superadmin' || currentUser.role === 'admin');
+
     // Auth
     if (url.includes('/api/auth/login') && method === 'POST') {
       const user = db.users?.find((u: any) => u.id === body?.userId && u.password === body?.password);
       if (user) {
-        return new Response(JSON.stringify({ token: 'mock-token', user }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        const { password: _, ...safeUser } = user;
+        return new Response(JSON.stringify({ token: 'mock-token', user: safeUser }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
       return new Response(JSON.stringify({ error: 'Invalid User ID or Password' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
     }
@@ -242,11 +250,21 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
         const id = new URL(url, window.location.origin).searchParams.get('id');
         if (id) {
            const emp = db.employees?.find((e: any) => e.id === id);
+           if (emp && !isAdminUser && currentUser && emp.id !== currentUser.id) {
+             return new Response(JSON.stringify(null), { status: 200, headers: { 'Content-Type': 'application/json' } });
+           }
            return new Response(JSON.stringify(emp || null), { status: 200, headers: { 'Content-Type': 'application/json' } });
         }
-        return new Response(JSON.stringify(db.employees || []), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (isAdminUser) {
+          return new Response(JSON.stringify(db.employees || []), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
+        const ownEmp = db.employees?.filter((e: any) => currentUser && e.id === currentUser.id) || [];
+        return new Response(JSON.stringify(ownEmp), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
       if (method === 'POST') {
+        if (!isAdminUser) {
+          return new Response(JSON.stringify({ error: 'Access denied. Super Admin only.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+        }
         if (!db.employees) db.employees = [];
         const idx = db.employees.findIndex((e: any) => e.id === body?.id);
         if (idx >= 0) db.employees[idx] = body;
@@ -258,6 +276,9 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
         return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
       if (method === 'DELETE') {
+        if (!isAdminUser) {
+          return new Response(JSON.stringify({ error: 'Access denied. Super Admin only.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+        }
         const id = url.split('/').pop();
         if (db.employees) db.employees = db.employees.filter((e: any) => e.id !== id);
         saveDb(db);
@@ -273,12 +294,22 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
       if (method === 'GET') {
         if (id) {
           const ev = db.evaluations?.find((e: any) => e.id == id);
-          if (ev) return new Response(JSON.stringify(ev), { status: 200, headers: { 'Content-Type': 'application/json' } });
-          return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+          if (!ev) return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+          if (!isAdminUser && currentUser && ev.createdBy !== currentUser.id && ev.appraiser !== currentUser.id && ev.supporter !== currentUser.id && ev.employeeId !== currentUser.id) {
+            return new Response(JSON.stringify({ error: 'Access denied. You can only view your own evaluations.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+          }
+          return new Response(JSON.stringify(ev), { status: 200, headers: { 'Content-Type': 'application/json' } });
         }
-        return new Response(JSON.stringify(db.evaluations || []), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        let evals = db.evaluations || [];
+        if (!isAdminUser && currentUser) {
+          evals = evals.filter((e: any) => e.createdBy === currentUser.id || e.appraiser === currentUser.id || e.supporter === currentUser.id || e.employeeId === currentUser.id);
+        }
+        return new Response(JSON.stringify(evals), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
       if (method === 'POST') {
+        if (!isAdminUser && currentUser && body.employeeId !== currentUser.id && body.appraiser !== currentUser.id && body.supporter !== currentUser.id) {
+          return new Response(JSON.stringify({ error: 'Access denied.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+        }
         if (!db.evaluations) db.evaluations = [];
         body.id = 'mock-' + Date.now();
         body.createdAt = new Date().toISOString();
@@ -290,12 +321,22 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
         if (!db.evaluations) db.evaluations = [];
         const idx = db.evaluations.findIndex((e: any) => e.id == id);
         if (idx >= 0) {
-          db.evaluations[idx] = { ...db.evaluations[idx], ...body, id: db.evaluations[idx].id };
+          const ev = db.evaluations[idx];
+          if (!isAdminUser && currentUser && ev.createdBy !== currentUser.id && ev.appraiser !== currentUser.id && ev.supporter !== currentUser.id && ev.employeeId !== currentUser.id) {
+            return new Response(JSON.stringify({ error: 'Access denied.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+          }
+          db.evaluations[idx] = { ...ev, ...body, id: ev.id };
           saveDb(db);
         }
         return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
       if (method === 'DELETE' && id) {
+        if (!isAdminUser && currentUser) {
+          const ev = db.evaluations?.find((e: any) => e.id == id);
+          if (ev && ev.createdBy !== currentUser.id) {
+            return new Response(JSON.stringify({ error: 'Access denied.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+          }
+        }
         if (db.evaluations) db.evaluations = db.evaluations.filter((e: any) => e.id != id);
         saveDb(db);
         return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -319,14 +360,25 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
     // Users
     if (url.includes('/api/users')) {
       const id = url.split('/').pop();
-      if (method === 'GET') return new Response(JSON.stringify(db.users || []), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (method === 'GET') {
+        if (!isAdminUser) {
+          return new Response(JSON.stringify({ error: 'Access denied.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+        }
+        return new Response(JSON.stringify(db.users || []), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
       if (method === 'POST') {
+        if (!isAdminUser) {
+          return new Response(JSON.stringify({ error: 'Access denied.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+        }
         if (!db.users) db.users = [];
         db.users.push(body);
         saveDb(db);
         return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
       if (method === 'PUT' && id && !url.endsWith('/users')) {
+        if (!isAdminUser) {
+          return new Response(JSON.stringify({ error: 'Access denied.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+        }
         if (!db.users) db.users = [];
         const idx = db.users.findIndex((u: any) => u.id === id);
         if (idx >= 0) {
@@ -338,6 +390,9 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
         return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
       if (method === 'DELETE' && id && !url.endsWith('/users')) {
+        if (!isAdminUser) {
+          return new Response(JSON.stringify({ error: 'Access denied.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+        }
         if (db.users) db.users = db.users.filter((u: any) => u.id !== id);
         saveDb(db);
         return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -347,6 +402,9 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
     // Audit Logs
     if (url.includes('/api/audit-logs')) {
       if (method === 'GET') {
+        if (!isAdminUser) {
+          return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
         return new Response(JSON.stringify(db.auditLogs || []), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
       if (method === 'POST') {
@@ -362,6 +420,9 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
     if (url.includes('/api/notifications')) {
       if (method === 'GET') {
         if (!db.notifications) db.notifications = [];
+        if (!isAdminUser && currentUser) {
+          return new Response(JSON.stringify(db.notifications.filter((n: any) => n.userId === currentUser.id)), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
         return new Response(JSON.stringify(db.notifications), { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
       if (method === 'POST') {
@@ -395,13 +456,22 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
     
     // Data Management
     if (url.includes('/api/data/export') && method === 'GET') {
+      if (!isAdminUser) {
+        return new Response(JSON.stringify({ error: 'Access denied.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+      }
       return new Response(JSON.stringify(db), { status: 200, headers: { 'Content-Type': 'application/json', 'Content-Disposition': 'attachment; filename="data.json"' } });
     }
     if (url.includes('/api/data/import') && method === 'POST') {
+      if (!isAdminUser) {
+        return new Response(JSON.stringify({ error: 'Access denied.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+      }
       saveDb(body);
       return new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
     if (url.includes('/api/data/reset/') && method === 'POST') {
+      if (!isAdminUser) {
+        return new Response(JSON.stringify({ error: 'Access denied.' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+      }
       const type = url.split('/').pop()!;
       if (type === 'all') {
         db.users = defaultDb.users.map(u => ({ ...u }));

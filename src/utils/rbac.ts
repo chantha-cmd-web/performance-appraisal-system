@@ -21,6 +21,17 @@ export const isEmployee = (user: User | null): boolean =>
 export const canAccessAdminPage = (user: User | null): boolean =>
   isSuperAdmin(user);
 
+// Data export / import / admin functions
+export const canExportData = (user: User | null): boolean =>
+  isAdmin(user);
+
+export const canManageUsers = (user: User | null): boolean =>
+  isSuperAdmin(user);
+
+// Can view all reports (vs only own)
+export const canViewAllReports = (user: User | null): boolean =>
+  isAdmin(user);
+
 // Dashboard: which evaluations can this user see?
 export function filterEvaluationsByRole(evals: Evaluation[], user: User | null): Evaluation[] {
   if (!user) return [];

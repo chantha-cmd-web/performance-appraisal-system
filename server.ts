@@ -206,6 +206,10 @@ const requireSuperAdmin = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
+const isRelatedToEvaluation = (user: any, ev: any): boolean => {
+  return ev.createdBy === user.id || ev.appraiser === user.id || ev.supporter === user.id || ev.employeeId === user.id;
+};
+
 // --- API ROUTES ---
 
 const logAudit = (userId: string, userName: string, action: string, details: string) => {
@@ -534,6 +538,7 @@ app.delete('/api/evaluations/:id', authenticateToken, (req, res) => {
     if (!ev) return res.status(404).json({ error: 'Evaluation not found' });
     
     if (req.user!.role !== 'superadmin' && ev.createdBy !== req.user!.id) {
+      logAudit(req.user!.id, req.user!.name, 'unauthorized_access', `Attempted to delete evaluation #${id}`);
       return res.status(403).json({ error: 'Not authorized to delete this evaluation' });
     }
 
@@ -555,6 +560,11 @@ app.get('/api/evaluations/:id', authenticateToken, (req, res) => {
   try {
     const evalRecord = db.prepare('SELECT * FROM evaluations WHERE id = ?').get(id) as any;
     if (!evalRecord) return res.status(404).json({ error: 'Evaluation not found' });
+
+    if (req.user!.role !== 'superadmin' && req.user!.role !== 'admin' && !isRelatedToEvaluation(req.user, evalRecord)) {
+      logAudit(req.user!.id, req.user!.name, 'unauthorized_access', `Attempted to view evaluation #${id}`);
+      return res.status(403).json({ error: 'Access denied. You can only view your own evaluations.' });
+    }
     
     const scores = db.prepare('SELECT * FROM criteria_scores WHERE evaluationId = ?').all(id);
     const peerFeedbacks = db.prepare('SELECT * FROM peer_feedback WHERE evaluationId = ?').all(id);
@@ -569,6 +579,11 @@ app.post('/api/evaluations', authenticateToken, (req, res) => {
   const data = req.body;
   const createdBy = req.user!.id;
   const createdByName = req.user!.name;
+
+  if (req.user!.role !== 'superadmin' && req.user!.role !== 'admin' && data.employeeId !== req.user!.id && data.appraiser !== req.user!.id && data.supporter !== req.user!.id) {
+    logAudit(req.user!.id, req.user!.name, 'unauthorized_access', `Attempted to create evaluation for employee ${data.employeeId}`);
+    return res.status(403).json({ error: 'Access denied. You can only create evaluations for yourself or where you are assigned.' });
+  }
 
   try {
     const insertEval = db.prepare(`
@@ -618,6 +633,7 @@ app.put('/api/evaluations/:id', authenticateToken, (req, res) => {
     
     // Allow superadmin, creator, appraiser, supporter, or the employee themselves to edit
     if (req.user!.role !== 'superadmin' && ev.createdBy !== req.user!.id && ev.appraiser !== req.user!.id && ev.supporter !== req.user!.id && ev.employeeId !== req.user!.id) {
+      logAudit(req.user!.id, req.user!.name, 'unauthorized_access', `Attempted to edit evaluation #${id}`);
       return res.status(403).json({ error: 'Not authorized to edit this evaluation' });
     }
 
@@ -683,11 +699,20 @@ app.get('/api/employees', authenticateToken, (req, res) => {
   try {
     const { id } = req.query;
     if (id) {
-        const employee = db.prepare('SELECT * FROM employees WHERE id = ?').get(id);
+        const employee = db.prepare('SELECT * FROM employees WHERE id = ?').get(id) as any;
+        if (employee && req.user!.role !== 'superadmin' && req.user!.role !== 'admin' && employee.id !== req.user!.id) {
+          logAudit(req.user!.id, req.user!.name, 'unauthorized_access', `Attempted to view employee ${id}`);
+          return res.status(403).json({ error: 'Access denied.' });
+        }
         return res.json(employee || null);
     }
-    const employees = db.prepare('SELECT * FROM employees ORDER BY name ASC').all();
-    res.json(employees);
+    if (req.user!.role === 'superadmin' || req.user!.role === 'admin') {
+      const employees = db.prepare('SELECT * FROM employees ORDER BY name ASC').all();
+      res.json(employees);
+    } else {
+      const employee = db.prepare('SELECT * FROM employees WHERE id = ?').get(req.user!.id);
+      res.json(employee ? [employee] : []);
+    }
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
