@@ -13,7 +13,7 @@ export default function NotificationsBell() {
   const { token, user } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
-  const [hasShownToast, setHasShownToast] = useState(false);
+  const hasShownToastRef = useRef(false);
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -21,30 +21,30 @@ export default function NotificationsBell() {
   const unreadCount = myNotifications.filter(n => !n.read).length;
 
   const loadNotifications = useCallback(async () => {
-      if (!token) return;
-      const data = await fetchNotifications(token);
-      setNotifications(data);
+    if (!token) return;
+    const data = await fetchNotifications(token);
+    setNotifications(data);
 
-      if (!hasShownToast && user) {
-        const myUnread = data.filter((n: AppNotification) => n.userId === user.id && !n.read);
-        if (myUnread.length > 0) {
-          myUnread.slice(0, 3).forEach((n: AppNotification) => {
-            if (n.type === 'warning') toast.error(n.message, { icon: '⚠️', duration: 5000 });
-            else if (n.type === 'action_required') toast(n.message, { icon: '📋', duration: 6000 });
-            else toast.success(n.message, { icon: '🔔', duration: 4000 });
-          });
-          setHasShownToast(true);
-        }
+    if (!hasShownToastRef.current && user) {
+      const myUnread = data.filter((n: AppNotification) => n.userId === user.id && !n.read);
+      if (myUnread.length > 0) {
+        myUnread.slice(0, 3).forEach((n: AppNotification) => {
+          if (n.type === 'warning') toast.error(n.message, { icon: '⚠️', duration: 5000 });
+          else if (n.type === 'action_required') toast(n.message, { icon: '📋', duration: 6000 });
+          else toast.success(n.message, { icon: '🔔', duration: 4000 });
+        });
+        hasShownToastRef.current = true;
       }
-    }, [token, user, hasShownToast]);
+    }
+  }, [token, user]);
 
-    useEffect(() => {
-      loadNotifications();
-      const interval = setInterval(loadNotifications, 30000);
-      return () => clearInterval(interval);
-    }, [loadNotifications]);
+  useEffect(() => {
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [loadNotifications]);
 
-    useRealtimeRefresh(['evaluations:updated', 'notifications:updated', 'users:updated', 'employees:updated'], loadNotifications);
+  useRealtimeRefresh(['evaluations:updated', 'notifications:updated', 'users:updated', 'employees:updated'], loadNotifications);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

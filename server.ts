@@ -386,6 +386,9 @@ app.post('/api/data/import', authenticateToken, requireSuperAdmin, async (req, r
 app.post('/api/data/reset/:type', authenticateToken, requireSuperAdmin, async (req, res) => {
   try {
     const { type } = req.params;
+    if (!['evaluations', 'users', 'all'].includes(type)) {
+      return res.status(400).json({ error: 'Invalid reset type' });
+    }
     await transaction(async (client) => {
       if (type === 'evaluations') {
         await client.query('DELETE FROM "criteria_scores"');
@@ -399,8 +402,6 @@ app.post('/api/data/reset/:type', authenticateToken, requireSuperAdmin, async (r
         await client.query('DELETE FROM "evaluations"');
         await client.query("DELETE FROM \"users\" WHERE \"id\" != 'superadmin'");
         await client.query('DELETE FROM "app_settings"');
-      } else {
-        return res.status(400).json({ error: 'Invalid reset type' });
       }
     });
     await logAudit(req.user!.id, req.user!.name, 'reset_data', `Reset data: ${type}`);
