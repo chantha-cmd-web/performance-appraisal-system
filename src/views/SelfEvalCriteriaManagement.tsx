@@ -3,10 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSelfEvalSettings, SelfEvalProfile, Criterion } from '../hooks/useSettings';
 import { Save, Plus, Trash2, Edit2, ShieldAlert } from 'lucide-react';
+import { useRealtimeRefresh } from '../hooks/useRealtime';
 
 export default function SelfEvalCriteriaManagement() {
   const { user } = useAuth();
-  const { profiles, loading, saveProfiles } = useSelfEvalSettings();
+  const { profiles, loading, saveProfiles, refresh: refreshProfiles } = useSelfEvalSettings();
+  useRealtimeRefresh(['settings:updated', 'data:imported', 'data:reset'], refreshProfiles);
   const [localProfiles, setLocalProfiles] = useState<SelfEvalProfile[]>([]);
   const [saving, setSaving] = useState(false);
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');

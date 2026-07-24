@@ -5,6 +5,7 @@ import { User } from '../types';
 import { Shield, ShieldAlert, User as UserIcon, Activity, Clock, X, Trash2, Edit2, Plus, Key, Eye, EyeOff, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { useRealtimeRefresh } from '../hooks/useRealtime';
 
 interface AuditLog {
   id: number;
@@ -45,6 +46,7 @@ export default function UserManagement() {
       fetchLogs();
     }
   }, [user]);
+  useRealtimeRefresh(['users:updated', 'employees:updated'], () => { if (user?.role === 'superadmin') { fetchUsers(); fetchLogs(); } });
 
   const fetchUsers = async () => {
     try {

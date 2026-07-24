@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Search, Plus, Upload, Download, Trash2, Edit2, CheckCircle2, AlertCircle, ShieldAlert, X, AlertTriangle, Info } from 'lucide-react';
 import { Employee } from '../types';
 import toast from 'react-hot-toast';
+import { useRealtimeRefresh } from '../hooks/useRealtime';
 import * as XLSX from 'xlsx';
 
 export default function EmployeeProfiles() {
@@ -70,6 +71,7 @@ export default function EmployeeProfiles() {
   useEffect(() => {
     fetchEmployees();
   }, [token]);
+  useRealtimeRefresh(['employees:updated', 'users:updated'], fetchEmployees);
 
   const deleteEmployee = async (id: string) => {
     if (!confirm('Are you sure you want to delete this employee?')) return;

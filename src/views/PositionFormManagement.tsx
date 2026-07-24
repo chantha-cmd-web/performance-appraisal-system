@@ -6,11 +6,13 @@ import { PREDEFINED_POSITIONS, PositionFormConfig, PositionSection, PositionCrit
 import { Save, Plus, Trash2, ChevronDown, ChevronRight, ShieldAlert, Copy, ChevronUp, Eye, RotateCcw, AlertTriangle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import toast from 'react-hot-toast';
+import { useRealtimeRefresh } from '../hooks/useRealtime';
 
 export default function PositionFormManagement() {
   const { user } = useAuth();
-  const { configs, loading, saveConfigs } = usePositionFormConfigs();
+  const { configs, loading, saveConfigs, refresh: refreshConfigs } = usePositionFormConfigs();
   const { config: evalConfig } = useSettings();
+  useRealtimeRefresh(['settings:updated', 'data:imported', 'data:reset'], refreshConfigs);
   const [localConfigs, setLocalConfigs] = useState<PositionFormConfig[]>([]);
   const [selectedId, setSelectedId] = useState<string>('');
   const [saving, setSaving] = useState(false);

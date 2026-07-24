@@ -311,6 +311,7 @@ app.put('/api/notifications', authenticateToken, async (req, res) => {
     if (markAllRead && userId) {
       await pool.query('UPDATE "notifications" SET "read" = TRUE WHERE "userId" = $1', [userId]);
     }
+    broadcast('notifications:updated', { userId: userId || req.user?.id });
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -320,6 +321,7 @@ app.put('/api/notifications', authenticateToken, async (req, res) => {
 app.delete('/api/notifications/:id', authenticateToken, async (req, res) => {
   try {
     await pool.query('DELETE FROM "notifications" WHERE "id" = $1', [req.params.id]);
+    broadcast('notifications:updated', { userId: req.user?.id });
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

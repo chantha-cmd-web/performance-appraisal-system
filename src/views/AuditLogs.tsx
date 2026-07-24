@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { ShieldAlert, Search, RefreshCcw } from 'lucide-react';
 import { format } from 'date-fns';
+import { useRealtimeRefresh } from '../hooks/useRealtime';
 
 interface AuditLog {
   id: number;
@@ -39,6 +40,8 @@ export default function AuditLogs() {
       setLoading(false);
     }
   };
+
+  useRealtimeRefresh(['evaluations:updated', 'users:updated', 'employees:updated'], fetchLogs);
 
   if (user?.role !== 'superadmin') {
     return <div className="p-12 text-center text-red-500 font-bold">Access Denied. Admins only.</div>;

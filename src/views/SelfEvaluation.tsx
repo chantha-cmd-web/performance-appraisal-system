@@ -7,6 +7,7 @@ import { PREDEFINED_POSITIONS, PositionFormConfig } from '../types';
 import { ClipboardCheck, ArrowRight, FileText, Clock, CheckCircle2, AlertTriangle, Briefcase } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
+import { useRealtimeRefresh } from '../hooks/useRealtime';
 
 export default function SelfEvaluation() {
   const { user, token } = useAuth();
@@ -36,6 +37,8 @@ export default function SelfEvaluation() {
       setLoadingEvals(false);
     }
   };
+
+  useRealtimeRefresh(['evaluations:updated', 'employees:updated', 'settings:updated'], fetchMyEvaluations);
 
   const getPositionConfig = (position: string): PositionFormConfig | undefined => {
     return configs?.find(c => c.position === position);

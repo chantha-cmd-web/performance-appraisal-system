@@ -4,10 +4,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSettings, EvaluationConfig, Criterion, CriterionSection, WeightingScheme } from '../hooks/useSettings';
 import { Save, Plus, Trash2, Settings, List, PlusCircle, ShieldAlert, ChevronDown, ChevronRight, FolderOpen, GripVertical } from 'lucide-react';
 import { PREDEFINED_POSITIONS } from '../types';
+import { useRealtimeRefresh } from '../hooks/useRealtime';
 
 export default function CriteriaManagement() {
   const { user } = useAuth();
-  const { config, loading, saveSettings } = useSettings();
+  const { config, loading, saveSettings, refresh: refreshConfig } = useSettings();
+  useRealtimeRefresh(['settings:updated', 'data:imported', 'data:reset'], refreshConfig);
   const [activeTab, setActiveTab] = useState<'types' | 'weighting' | 'criteria'>('criteria');
   const [selectedType, setSelectedType] = useState<string>('management');
   const [saving, setSaving] = useState(false);

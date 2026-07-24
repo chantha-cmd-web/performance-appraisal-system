@@ -1,7 +1,8 @@
 import { apiFetch } from '../mockApi';
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Database, Download, Upload, RotateCcw, AlertTriangle, FileJson, FileSpreadsheet, FileText, CheckCircle2 } from 'lucide-react';
+import { useRealtimeRefresh } from '../hooks/useRealtime';
 import * as xlsx from 'xlsx';
 
 export default function DataManagement() {
@@ -14,6 +15,8 @@ export default function DataManagement() {
     setMessage({ text, type });
     setTimeout(() => setMessage({ text: '', type: '' }), 5000);
   };
+
+  useRealtimeRefresh(['data:imported', 'data:reset', 'employees:updated', 'evaluations:updated'], useCallback(() => { window.location.reload(); }, []));
 
   if (user?.role !== 'superadmin') {
     return (

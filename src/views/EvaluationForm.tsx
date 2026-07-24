@@ -16,6 +16,7 @@ import {
 } from '../utils/rbac';
 import { sendStatusChangeNotification } from '../utils/notifications';
 import { generatePdfReport } from '../utils/pdfReport';
+import { useRealtimeRefresh } from '../hooks/useRealtime';
 import toast from 'react-hot-toast';
 
 export default function EvaluationForm() {
@@ -55,6 +56,7 @@ export default function EvaluationForm() {
   const scoresLoadedFromServer = useRef(false);
 
   useEffect(() => { if (editId) fetchEvaluation(); }, [editId]);
+  useRealtimeRefresh(['evaluations:updated', 'employees:updated', 'settings:updated'], () => { if (editId) fetchEvaluation(); });
 
   const fetchEvaluation = async () => {
     try {

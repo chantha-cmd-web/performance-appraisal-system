@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Save, Upload, Download, ShieldAlert } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useRealtimeRefresh } from '../hooks/useRealtime';
 
 export default function HRSettings() {
   const { token, user } = useAuth();
@@ -31,20 +32,19 @@ export default function HRSettings() {
     evalPeriods: 'Q1 2026\nQ2 2026\nQ3 2026\nQ4 2026\nAnnual 2026'
   });
 
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const res = await apiFetch('/api/settings/hr_profiles', { headers: { Authorization: `Bearer ${token}` } });
-        if (res.ok) {
-          const data = await res.json();
-          if (data) setSettings(data);
-        }
-      } catch (err) {} finally {
-        setLoading(false);
+  const fetchSettings = async () => {
+    try {
+      const res = await apiFetch('/api/settings/hr_profiles', { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        if (data) setSettings(data);
       }
-    };
-    fetchSettings();
-  }, [token]);
+    } catch (err) {} finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { fetchSettings(); }, [token]);
+  useRealtimeRefresh(['settings:updated', 'data:imported', 'data:reset'], fetchSettings);
 
   const saveSettings = async () => {
     setSaving(true);
