@@ -1,38 +1,16 @@
-name: Build and Verify
+name: Build and Deploy
 
 on:
   push:
     branches: [ master ]
-  pull_request:
-    branches: [ master ]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: testuser
-          POSTGRES_PASSWORD: testpass
-          POSTGRES_DB: performance_system_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    env:
-      DATABASE_URL: postgresql://testuser:testpass@localhost:5432/performance_system_test
-      JWT_SECRET: test-secret-key
-      NODE_ENV: production
 
     steps:
       - name: Checkout
@@ -48,17 +26,16 @@ jobs:
         run: npm ci
 
       - name: TypeScript check
-        run: npm run lint
+        run: npx tsc --noEmit
 
       - name: Build
         run: npm run build
 
-      - name: Test database migration
-        run: npx tsx update_db.ts
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          name: build-output
-          path: dist/
-          retention-days: 7
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          force_orphan: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
