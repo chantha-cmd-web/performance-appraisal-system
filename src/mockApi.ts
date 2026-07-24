@@ -1,4 +1,4 @@
-const DB_VERSION = '11';
+const DB_VERSION = '12';
 
 const defaultEvaluationConfig = JSON.stringify({
   types: [
@@ -107,47 +107,229 @@ const defaultDb = {
   settings: {
     evaluation_config: defaultEvaluationConfig,
     self_eval_profiles: '[]',
-    hr_profiles: '[]',
-    position_form_configs: JSON.stringify([{
-      id: 'cfg-accountant', position: 'Accountant', weightingScheme: 'campus_60_40',
-      sections: [
-        { id: 'sec-1', name: 'Professional Competencies', khName: 'សមត្ថភាពវិជ្ជាជីវៈ', weight: 50, displayOrder: 0, status: 'active' },
-        { id: 'sec-2', name: 'Core Values & Behavior', khName: 'តម្លៃ និងឥរិយាបទ', weight: 50, displayOrder: 1, status: 'active' }
-      ],
-      criteria: [
-        { id: 1, sectionId: 'sec-1', kh: 'គណនេយ្យភាពហិរញ្ញវត្ថុ', en: 'Financial Accountability', khDesc: 'ការគ្រប់គ្រងហិរញ្ញវត្ថុ', desc: 'Accuracy in financial reporting', max: 10, displayOrder: 0, status: 'active' },
-        { id: 2, sectionId: 'sec-1', kh: 'ជំនាញទន្ទឹនិយោបល់', en: 'Analytical Skills', khDesc: 'សមត្ថភាពវិភាគ', desc: 'Data analysis capability', max: 10, displayOrder: 1, status: 'active' },
-        { id: 3, sectionId: 'sec-1', kh: 'ការប្រើប្រាស់ប្រព័ន្ធគណនេយ្យ', en: 'Accounting Software Proficiency', khDesc: 'ជំនាញប្រព័ន្ធ', desc: 'Proficiency in accounting tools', max: 10, displayOrder: 2, status: 'active' },
-        { id: 4, sectionId: 'sec-2', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍', desc: 'Enthusiasm and dedication', max: 10, displayOrder: 3, status: 'active' },
-        { id: 5, sectionId: 'sec-2', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនង', desc: 'Interactions with colleagues', max: 10, displayOrder: 4, status: 'active' },
-        { id: 6, sectionId: 'sec-2', kh: 'ការសហការក្រុម', en: 'Teamwork', khDesc: 'ការធ្វើការជាក្រុម', desc: 'Working well with others', max: 10, displayOrder: 5, status: 'active' }
-      ]
-    }, {
-      id: 'cfg-supervisor', position: 'Supervisor', weightingScheme: 'campus_60_40',
-      sections: [
+    hr_profiles: JSON.stringify({
+      campuses: 'Main Campus\nNorth Campus\nSouth Campus',
+      departments: 'IT\nHR\nFinance\nOperations\nAcademics\nManagement\nStudent Affairs\nLibrary\nNursing\nLaboratory',
+      positions: 'Management\nCentral Officer\nSupervisor\nHR\nAdministrator\nRegistrar\nAccountant\nStock Controller\nUniform Seller\nCustomer Service\nStudent Affairs\nNurse\nLaboratory Assistant\nLibrarian\nGEP Officer\nTeaching Assistant (TA)\nNanny\nDiscipline Officer',
+      categories: 'Full-time\nPart-time\nContractor',
+      evalModels: 'campus_100\ncampus_60_40\ncampus_50_50\ncampus_100',
+      evalPeriods: 'Q1 2026\nQ2 2026\nQ3 2026\nQ4 2026\nAnnual 2026'
+    }),
+    position_form_configs: JSON.stringify([
+      { id: 'cfg-management', position: 'Management', weightingScheme: 'management_100', sections: [
+        { id: 'sec-1', name: 'Strategic Leadership', khName: 'ភាពដឹកនាំយុទ្ធសាស្ត្រ', weight: 40, displayOrder: 0, status: 'active' },
+        { id: 'sec-2', name: 'Operations Management', khName: 'ការគ្រប់គ្រងប្រតិបត្តិការ', weight: 35, displayOrder: 1, status: 'active' },
+        { id: 'sec-3', name: 'Core Values', khName: 'តម្លៃ និងឥរិយាបទ', weight: 25, displayOrder: 2, status: 'active' }
+      ], criteria: [
+        { id: 101, sectionId: 'sec-1', kh: 'ការដឹកនាំយុទ្ធសាស្ត្រ', en: 'Strategic Leadership', khDesc: 'ការគ្រោងការណ៍យុទ្ធសាស្ត្រ', desc: 'Ability to set and execute long-term vision', max: 10, displayOrder: 0, status: 'active' },
+        { id: 102, sectionId: 'sec-1', kh: 'ការសម្រេចចិត្ត', en: 'Decision Making', khDesc: 'ការសម្រេចចិត្តប្រកបដោយប្រសិទ្ធភាព', desc: 'Sound and timely decision-making', max: 10, displayOrder: 1, status: 'active' },
+        { id: 103, sectionId: 'sec-1', kh: 'ការគ្រប់គ្រងការផ្លាស់ប្តូរ', en: 'Change Management', khDesc: 'ការដឹកនាំការផ្លាស់ប្តូរ', desc: 'Leading organizational change effectively', max: 10, displayOrder: 2, status: 'active' },
+        { id: 104, sectionId: 'sec-2', kh: 'ប្រសិទ្ធភាពប្រតិបត្តិការ', en: 'Operational Efficiency', khDesc: 'ការរក្សាប្រសិទ្ធភាពការងារ', desc: 'Ensuring smooth daily operations', max: 10, displayOrder: 3, status: 'active' },
+        { id: 105, sectionId: 'sec-2', kh: 'ការគ្រប់គ្រងធនធាន', en: 'Resource Management', khDesc: 'ការគ្រប់គ្រងធនធានមនុស្ស និងហិរញ្ញវត្ថុ', desc: 'Effective use of human and financial resources', max: 10, displayOrder: 4, status: 'active' },
+        { id: 106, sectionId: 'sec-2', kh: 'ការដាក់ចេញគោលការណ៍', en: 'Policy Implementation', khDesc: 'ការអនុវត្តន៍គោលនយោបាយ', desc: 'Implementing organizational policies', max: 10, displayOrder: 5, status: 'active' },
+        { id: 107, sectionId: 'sec-3', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍ និងភាពសាទរ', desc: 'Professional enthusiasm and dedication', max: 10, displayOrder: 6, status: 'active' },
+        { id: 108, sectionId: 'sec-3', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនងជាមួយបុគ្គលិក', desc: 'Clear and effective communication', max: 10, displayOrder: 7, status: 'active' },
+        { id: 109, sectionId: 'sec-3', kh: 'ភាពជាគំរូ', en: 'Role Model', khDesc: 'ការដើរតួជាគំរូសម្រាប់បុគ្គលិក', desc: 'Leading by example', max: 10, displayOrder: 8, status: 'active' }
+      ]},
+      { id: 'cfg-central-officer', position: 'Central Officer', weightingScheme: 'central_100', sections: [
+        { id: 'sec-1', name: 'Administrative Skills', khName: 'ជំនាញរដ្ឋបាល', weight: 50, displayOrder: 0, status: 'active' },
+        { id: 'sec-2', name: 'Core Values', khName: 'តម្លៃ និងឥរិយាបទ', weight: 50, displayOrder: 1, status: 'active' }
+      ], criteria: [
+        { id: 110, sectionId: 'sec-1', kh: 'ជំនាញរដ្ឋបាល', en: 'Administrative Skills', khDesc: 'ការគ្រប់គ្រងការងាររដ្ឋបាល', desc: 'Managing administrative tasks effectively', max: 10, displayOrder: 0, status: 'active' },
+        { id: 111, sectionId: 'sec-1', kh: 'ការរៀបចំឯកសារ', en: 'Documentation', khDesc: 'ការរៀបចំ និងរក្សាទុកឯកសារ', desc: 'Organizing and maintaining documents', max: 10, displayOrder: 1, status: 'active' },
+        { id: 112, sectionId: 'sec-1', kh: 'ការប្រើប្រាស់ប្រព័ន្ធបច្ចេកវិទ្យា', en: 'Technology Use', khDesc: 'ជំនាញប្រើប្រាស់កុំព្យូទ័រ', desc: 'Proficiency in office technology', max: 10, displayOrder: 2, status: 'active' },
+        { id: 113, sectionId: 'sec-2', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍ និងភាពសាទរ', desc: 'Professional enthusiasm and dedication', max: 10, displayOrder: 3, status: 'active' },
+        { id: 114, sectionId: 'sec-2', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនងជាមួយសហការី', desc: 'Effective communication skills', max: 10, displayOrder: 4, status: 'active' },
+        { id: 115, sectionId: 'sec-2', kh: 'ការសហការក្រុម', en: 'Teamwork', khDesc: 'ការធ្វើការជាក្រុម', desc: 'Collaborating with team members', max: 10, displayOrder: 5, status: 'active' }
+      ]},
+      { id: 'cfg-supervisor', position: 'Supervisor', weightingScheme: 'campus_60_40', sections: [
         { id: 'sec-1', name: 'Leadership & Management', khName: 'ភាពជាអ្នកដឹកនាំ', weight: 60, displayOrder: 0, status: 'active' },
         { id: 'sec-2', name: 'Professional Skills', khName: 'ជំនាញវិជ្ជាជីវៈ', weight: 40, displayOrder: 1, status: 'active' }
-      ],
-      criteria: [
-        { id: 10, sectionId: 'sec-1', kh: 'ភាពជាអ្នកដឹកនាំ', en: 'Leadership', khDesc: 'ការដឹកនាំក្រុម', desc: 'Leadership qualities', max: 10, displayOrder: 0, status: 'active' },
-        { id: 11, sectionId: 'sec-1', kh: 'ការគ្រប់គ្រងក្រុម', en: 'Team Management', khDesc: 'ការគ្រប់គ្រងបុគ្គលិក', desc: 'Managing team performance', max: 10, displayOrder: 1, status: 'active' },
-        { id: 12, sectionId: 'sec-1', kh: 'ការសម្រេចចិត្ត', en: 'Decision Making', khDesc: 'ការសម្រេចចិត្ត', desc: 'Making sound decisions', max: 10, displayOrder: 2, status: 'active' },
-        { id: 13, sectionId: 'sec-2', kh: 'ចំណេះដឹងការងារ', en: 'Job Knowledge', khDesc: 'ការយល់ដឹង', desc: 'Understanding of work', max: 10, displayOrder: 3, status: 'active' },
-        { id: 14, sectionId: 'sec-2', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនង', desc: 'Communication skills', max: 10, displayOrder: 4, status: 'active' }
-      ]
-    }, {
-      id: 'cfg-hr', position: 'HR Officer', weightingScheme: 'campus_60_40',
-      sections: [
+      ], criteria: [
+        { id: 116, sectionId: 'sec-1', kh: 'ភាពជាអ្នកដឹកនាំ', en: 'Leadership', khDesc: 'ការដឹកនាំក្រុម', desc: 'Leadership qualities and team building', max: 10, displayOrder: 0, status: 'active' },
+        { id: 117, sectionId: 'sec-1', kh: 'ការគ្រប់គ្រងក្រុម', en: 'Team Management', khDesc: 'ការគ្រប់គ្រងបុគ្គលិក', desc: 'Managing team performance', max: 10, displayOrder: 1, status: 'active' },
+        { id: 118, sectionId: 'sec-1', kh: 'ការសម្រេចចិត្ត', en: 'Decision Making', khDesc: 'ការសម្រេចចិត្ត', desc: 'Making sound decisions', max: 10, displayOrder: 2, status: 'active' },
+        { id: 119, sectionId: 'sec-1', kh: 'ការដាក់ចេញការងារ', en: 'Task Assignment', khDesc: 'ការចែកចាយការងារ', desc: 'Effective delegation of tasks', max: 10, displayOrder: 3, status: 'active' },
+        { id: 120, sectionId: 'sec-2', kh: 'ចំណេះដឹងការងារ', en: 'Job Knowledge', khDesc: 'ការយល់ដឹងអំពីការងារ', desc: 'Understanding of work responsibilities', max: 10, displayOrder: 4, status: 'active' },
+        { id: 121, sectionId: 'sec-2', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនង', desc: 'Communication skills', max: 10, displayOrder: 5, status: 'active' },
+        { id: 122, sectionId: 'sec-2', kh: 'ការដោះស្រាយបញ្ហា', en: 'Problem Solving', khDesc: 'សមត្ថភាពដោះស្រាយបញ្ហា', desc: 'Resolving issues effectively', max: 10, displayOrder: 6, status: 'active' }
+      ]},
+      { id: 'cfg-hr', position: 'HR', weightingScheme: 'campus_60_40', sections: [
         { id: 'sec-1', name: 'HR Competencies', khName: 'សមត្ថភាពធនធានមនុស្ស', weight: 60, displayOrder: 0, status: 'active' },
         { id: 'sec-2', name: 'Core Values', khName: 'តម្លៃ និងឥរិយាបទ', weight: 40, displayOrder: 1, status: 'active' }
-      ],
-      criteria: [
-        { id: 20, sectionId: 'sec-1', kh: 'ការគ្រប់គ្រងធនធានមនុស្ស', en: 'HR Management', khDesc: 'ការគ្រប់គ្រងបុគ្គលិក', desc: 'HR process management', max: 10, displayOrder: 0, status: 'active' },
-        { id: 21, sectionId: 'sec-1', kh: 'ការជ្រើសរើសបុគ្គលិក', en: 'Recruitment', khDesc: 'ការជ្រើសរើស', desc: 'Hiring process effectiveness', max: 10, displayOrder: 1, status: 'active' },
-        { id: 22, sectionId: 'sec-2', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍', desc: 'Professional attitude', max: 10, displayOrder: 2, status: 'active' },
-        { id: 23, sectionId: 'sec-2', kh: 'ការសហការ', en: 'Collaboration', khDesc: 'ការធ្វើការជាមួយអ្នកដទៃ', desc: 'Working with others', max: 10, displayOrder: 3, status: 'active' }
-      ]
-    }])
+      ], criteria: [
+        { id: 123, sectionId: 'sec-1', kh: 'ការគ្រប់គ្រងធនធានមនុស្ស', en: 'HR Management', khDesc: 'ការគ្រប់គ្រងបុគ្គលិក', desc: 'HR process management', max: 10, displayOrder: 0, status: 'active' },
+        { id: 124, sectionId: 'sec-1', kh: 'ការជ្រើសរើសបុគ្គលិក', en: 'Recruitment', khDesc: 'ការជ្រើសរើសបុគ្គលិក', desc: 'Hiring process effectiveness', max: 10, displayOrder: 1, status: 'active' },
+        { id: 125, sectionId: 'sec-1', kh: 'ការបណ្តុះបណ្តាល', en: 'Training & Development', khDesc: 'ការបណ្តុះបណ្តាលបុគ្គលិក', desc: 'Employee training programs', max: 10, displayOrder: 2, status: 'active' },
+        { id: 126, sectionId: 'sec-1', kh: 'ការគ្រប់គ្រងប្រាក់ខែ', en: 'Compensation & Benefits', khDesc: 'ការគ្រប់គ្រងប្រាក់ខែ និងអត្ថប្រយោជន៍', desc: 'Managing payroll and benefits', max: 10, displayOrder: 3, status: 'active' },
+        { id: 127, sectionId: 'sec-2', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍', desc: 'Professional attitude', max: 10, displayOrder: 4, status: 'active' },
+        { id: 128, sectionId: 'sec-2', kh: 'ការសហការ', en: 'Collaboration', khDesc: 'ការធ្វើការជាមួយអ្នកដទៃ', desc: 'Working with others', max: 10, displayOrder: 5, status: 'active' },
+        { id: 129, sectionId: 'sec-2', kh: 'ភាពឯកជន', en: 'Confidentiality', khDesc: 'ការរក្សាការសម្ងាត់', desc: 'Maintaining confidentiality', max: 10, displayOrder: 6, status: 'active' }
+      ]},
+      { id: 'cfg-administrator', position: 'Administrator', weightingScheme: 'campus_60_40', sections: [
+        { id: 'sec-1', name: 'Administrative Operations', khName: 'ប្រតិបត្តិការរដ្ឋបាល', weight: 55, displayOrder: 0, status: 'active' },
+        { id: 'sec-2', name: 'Core Values', khName: 'តម្លៃ និងឥរិយាបទ', weight: 45, displayOrder: 1, status: 'active' }
+      ], criteria: [
+        { id: 130, sectionId: 'sec-1', kh: 'ការគ្រប់គ្រងការិយាល័យ', en: 'Office Management', khDesc: 'ការគ្រប់គ្រងការិយាល័យ', desc: 'Managing office operations', max: 10, displayOrder: 0, status: 'active' },
+        { id: 131, sectionId: 'sec-1', kh: 'ការរៀបចំឯកសារ', en: 'Document Management', khDesc: 'ការរៀបចំ និងរក្សាទុកឯកសារ', desc: 'Organizing and filing documents', max: 10, displayOrder: 1, status: 'active' },
+        { id: 132, sectionId: 'sec-1', kh: 'ការគ្រប់គ្រងកម្មវិធី', en: 'Program Coordination', khDesc: 'ការរៀបចំ និងត្រួតពិនិត្យកម្មវិធី', desc: 'Coordinating school programs', max: 10, displayOrder: 2, status: 'active' },
+        { id: 133, sectionId: 'sec-1', kh: 'ការប្រើប្រាស់ប្រព័ន្ធបច្ចេកវិទ្យា', en: 'Technology Use', khDesc: 'ជំនាញប្រើប្រាស់ប្រព័ន្ធបច្ចេកវិទ្យា', desc: 'Proficiency in office technology', max: 10, displayOrder: 3, status: 'active' },
+        { id: 134, sectionId: 'sec-2', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍', desc: 'Professional enthusiasm', max: 10, displayOrder: 4, status: 'active' },
+        { id: 135, sectionId: 'sec-2', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនង', desc: 'Effective communication', max: 10, displayOrder: 5, status: 'active' },
+        { id: 136, sectionId: 'sec-2', kh: 'ការសហការក្រុម', en: 'Teamwork', khDesc: 'ការធ្វើការជាក្រុម', desc: 'Working well with others', max: 10, displayOrder: 6, status: 'active' }
+      ]},
+      { id: 'cfg-registrar', position: 'Registrar', weightingScheme: 'campus_60_40', sections: [
+        { id: 'sec-1', name: 'Student Records', khName: 'ការគ្រប់គ្រងកំណត់ត្រា', weight: 55, displayOrder: 0, status: 'active' },
+        { id: 'sec-2', name: 'Core Values', khName: 'តម្លៃ និងឥរិយាបទ', weight: 45, displayOrder: 1, status: 'active' }
+      ], criteria: [
+        { id: 137, sectionId: 'sec-1', kh: 'ការគ្រប់គ្រងព័ត៌មានសិស្ស', en: 'Student Data Management', khDesc: 'ការរក្សាទុក និងគ្រប់គ្រងព័ត៌មានសិស្ស', desc: 'Managing student records accurately', max: 10, displayOrder: 0, status: 'active' },
+        { id: 138, sectionId: 'sec-1', kh: 'ការចុះឈ្មោះសិស្ស', en: 'Student Enrollment', khDesc: 'ដំណើរការចុះឈ្មោះសិស្ស', desc: 'Managing enrollment processes', max: 10, displayOrder: 1, status: 'active' },
+        { id: 139, sectionId: 'sec-1', kh: 'ការរៀបចំបញ្ជីឈ្មោះ', en: 'List Compilation', khDesc: 'ការរៀបចំបញ្ជីឈ្មោះ និងរបាយការណ៍', desc: 'Compiling lists and reports', max: 10, displayOrder: 2, status: 'active' },
+        { id: 140, sectionId: 'sec-1', kh: 'ភាពត្រឹមត្រូវ', en: 'Document Accuracy', khDesc: 'ភាពត្រឹមត្រូវនៃឯកសារសិស្ស', desc: 'Ensuring accuracy of student documents', max: 10, displayOrder: 3, status: 'active' },
+        { id: 141, sectionId: 'sec-2', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍', desc: 'Professional enthusiasm', max: 10, displayOrder: 4, status: 'active' },
+        { id: 142, sectionId: 'sec-2', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនងជាមួយសិស្ស និងមាតាបិតា', desc: 'Communicating with students and parents', max: 10, displayOrder: 5, status: 'active' },
+        { id: 143, sectionId: 'sec-2', kh: 'ភាពឯកជន', en: 'Confidentiality', khDesc: 'ការរក្សាការសម្ងាត់', desc: 'Maintaining data confidentiality', max: 10, displayOrder: 6, status: 'active' }
+      ]},
+      { id: 'cfg-accountant', position: 'Accountant', weightingScheme: 'campus_60_40', sections: [
+        { id: 'sec-1', name: 'Professional Competencies', khName: 'សមត្ថភាពវិជ្ជាជីវៈ', weight: 55, displayOrder: 0, status: 'active' },
+        { id: 'sec-2', name: 'Core Values', khName: 'តម្លៃ និងឥរិយាបទ', weight: 45, displayOrder: 1, status: 'active' }
+      ], criteria: [
+        { id: 144, sectionId: 'sec-1', kh: 'គណនេយ្យភាពហិរញ្ញវត្ថុ', en: 'Financial Accountability', khDesc: 'ការគ្រប់គ្រងហិរញ្ញវត្ថុ', desc: 'Accuracy in financial reporting', max: 10, displayOrder: 0, status: 'active' },
+        { id: 145, sectionId: 'sec-1', kh: 'ជំនាញវិភាគ', en: 'Analytical Skills', khDesc: 'សមត្ថភាពវិភាគទិន្នន័យ', desc: 'Data analysis capability', max: 10, displayOrder: 1, status: 'active' },
+        { id: 146, sectionId: 'sec-1', kh: 'ជំនាញប្រព័ន្ធគណនេយ្យ', en: 'Accounting Software', khDesc: 'ជំនាញប្រព័ន្ធគណនេយ្យ', desc: 'Proficiency in accounting tools', max: 10, displayOrder: 2, status: 'active' },
+        { id: 147, sectionId: 'sec-1', kh: 'ការត្រួតពិនិត្យឯកសារ', en: 'Financial Auditing', khDesc: 'ការត្រួតពិនិត្យឯកសារហិរញ្ញវត្ថុ', desc: 'Financial document auditing', max: 10, displayOrder: 3, status: 'active' },
+        { id: 148, sectionId: 'sec-2', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍', desc: 'Professional enthusiasm', max: 10, displayOrder: 4, status: 'active' },
+        { id: 149, sectionId: 'sec-2', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនង', desc: 'Effective communication', max: 10, displayOrder: 5, status: 'active' },
+        { id: 150, sectionId: 'sec-2', kh: 'ការសហការក្រុម', en: 'Teamwork', khDesc: 'ការធ្វើការជាក្រុម', desc: 'Working well with others', max: 10, displayOrder: 6, status: 'active' }
+      ]},
+      { id: 'cfg-stock-controller', position: 'Stock Controller', weightingScheme: 'campus_60_40', sections: [
+        { id: 'sec-1', name: 'Inventory Management', khName: 'ការគ្រប់គ្រងស្តុក', weight: 55, displayOrder: 0, status: 'active' },
+        { id: 'sec-2', name: 'Core Values', khName: 'តម្លៃ និងឥរិយាបទ', weight: 45, displayOrder: 1, status: 'active' }
+      ], criteria: [
+        { id: 151, sectionId: 'sec-1', kh: 'ការគ្រប់គ្រងស្តុកទំនិញ', en: 'Inventory Control', khDesc: 'ការត្រួតពិនិត្យ និងគ្រប់គ្រងស្តុក', desc: 'Monitoring and managing stock levels', max: 10, displayOrder: 0, status: 'active' },
+        { id: 152, sectionId: 'sec-1', kh: 'ការតាមដានទំនិញ', en: 'Stock Tracking', khDesc: 'ការតាមដានទំនិញចេញ-ចូល', desc: 'Tracking stock movements', max: 10, displayOrder: 1, status: 'active' },
+        { id: 153, sectionId: 'sec-1', kh: 'ភាពត្រឹមត្រូវ', en: 'Record Accuracy', khDesc: 'ភាពត្រឹមត្រូវនៃកំណត់ត្រាស្តុក', desc: 'Maintaining accurate stock records', max: 10, displayOrder: 2, status: 'active' },
+        { id: 154, sectionId: 'sec-1', kh: 'ការរៀបចំឃ្លាំង', en: 'Warehouse Organization', khDesc: 'ការរៀបចំ និងថែរក្សាឃ្លាំង', desc: 'Organizing storage areas', max: 10, displayOrder: 3, status: 'active' },
+        { id: 155, sectionId: 'sec-2', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍', desc: 'Professional enthusiasm', max: 10, displayOrder: 4, status: 'active' },
+        { id: 156, sectionId: 'sec-2', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនង', desc: 'Effective communication', max: 10, displayOrder: 5, status: 'active' },
+        { id: 157, sectionId: 'sec-2', kh: 'ភាពស្មោះត្រង់', en: 'Honesty', khDesc: 'ភាពស្មោះត្រង់ និងតម្លាភាព', desc: 'Honesty and transparency', max: 10, displayOrder: 6, status: 'active' }
+      ]},
+      { id: 'cfg-uniform-seller', position: 'Uniform Seller', weightingScheme: 'campus_60_40', sections: [
+        { id: 'sec-1', name: 'Sales & Service', khName: 'ការលក់ និងសេវាកម្ម', weight: 55, displayOrder: 0, status: 'active' },
+        { id: 'sec-2', name: 'Core Values', khName: 'តម្លៃ និងឥរិយាបទ', weight: 45, displayOrder: 1, status: 'active' }
+      ], criteria: [
+        { id: 158, sectionId: 'sec-1', kh: 'សមត្ថភាពលក់', en: 'Sales Skills', khDesc: 'សមត្ថភាពក្នុងការលក់', desc: 'Effectiveness in selling uniforms', max: 10, displayOrder: 0, status: 'active' },
+        { id: 159, sectionId: 'sec-1', kh: 'ការបម្រើអតិថិជន', en: 'Customer Service', khDesc: 'ការបម្រើអតិថិជន', desc: 'Serving customers politely', max: 10, displayOrder: 1, status: 'active' },
+        { id: 160, sectionId: 'sec-1', kh: 'ការគ្រប់គ្រងស្តុក', en: 'Stock Management', khDesc: 'ការគ្រប់គ្រងស្តុកឯកសណ្ឋាន', desc: 'Managing uniform inventory', max: 10, displayOrder: 2, status: 'active' },
+        { id: 161, sectionId: 'sec-2', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍', desc: 'Professional enthusiasm', max: 10, displayOrder: 3, status: 'active' },
+        { id: 162, sectionId: 'sec-2', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនង', desc: 'Effective communication', max: 10, displayOrder: 4, status: 'active' },
+        { id: 163, sectionId: 'sec-2', kh: 'ភាពស្មោះត្រង់', en: 'Honesty', khDesc: 'ភាពស្មោះត្រង់ និងតម្លាភាព', desc: 'Honesty and transparency', max: 10, displayOrder: 5, status: 'active' }
+      ]},
+      { id: 'cfg-customer-service', position: 'Customer Service', weightingScheme: 'campus_60_40', sections: [
+        { id: 'sec-1', name: 'Service Excellence', khName: 'សេវាកម្មឆ្នើម', weight: 55, displayOrder: 0, status: 'active' },
+        { id: 'sec-2', name: 'Core Values', khName: 'តម្លៃ និងឥរិយាបទ', weight: 45, displayOrder: 1, status: 'active' }
+      ], criteria: [
+        { id: 164, sectionId: 'sec-1', kh: 'ការបម្រើអតិថិជន', en: 'Customer Service', khDesc: 'ការបម្រើអតិថិជនប្រកបដោយគុណភាព', desc: 'Delivering quality customer service', max: 10, displayOrder: 0, status: 'active' },
+        { id: 165, sectionId: 'sec-1', kh: 'ការដោះស្រាយបញ្ហា', en: 'Problem Solving', khDesc: 'ការដោះស្រាយបញ្ហាអតិថិជន', desc: 'Resolving customer issues', max: 10, displayOrder: 1, status: 'active' },
+        { id: 166, sectionId: 'sec-1', kh: 'សមត្ថភាពប្រាស្រ័យទាក់ទង', en: 'Interpersonal Skills', khDesc: 'សមត្ថភាពប្រាស្រ័យទាក់ទង', desc: 'Building rapport with customers', max: 10, displayOrder: 2, status: 'active' },
+        { id: 167, sectionId: 'sec-2', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍', desc: 'Professional enthusiasm', max: 10, displayOrder: 3, status: 'active' },
+        { id: 168, sectionId: 'sec-2', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនង', desc: 'Effective communication', max: 10, displayOrder: 4, status: 'active' },
+        { id: 169, sectionId: 'sec-2', kh: 'ការសហការក្រុម', en: 'Teamwork', khDesc: 'ការធ្វើការជាក្រុម', desc: 'Working well with others', max: 10, displayOrder: 5, status: 'active' }
+      ]},
+      { id: 'cfg-student-affairs', position: 'Student Affairs', weightingScheme: 'campus_60_40', sections: [
+        { id: 'sec-1', name: 'Student Support', khName: 'ការគាំទ្រសិស្ស', weight: 55, displayOrder: 0, status: 'active' },
+        { id: 'sec-2', name: 'Core Values', khName: 'តម្លៃ និងឥរិយាបទ', weight: 45, displayOrder: 1, status: 'active' }
+      ], criteria: [
+        { id: 170, sectionId: 'sec-1', kh: 'ការគាំទ្រសិស្ស', en: 'Student Support', khDesc: 'ការផ្តល់ជំនួយដល់សិស្ស', desc: 'Supporting student welfare', max: 10, displayOrder: 0, status: 'active' },
+        { id: 171, sectionId: 'sec-1', kh: 'ការរៀបចំសកម្មភាព', en: 'Student Activities', khDesc: 'ការរៀបចំសកម្មភាពសិស្ស', desc: 'Organizing student activities', max: 10, displayOrder: 1, status: 'active' },
+        { id: 172, sectionId: 'sec-1', kh: 'ការដោះស្រាយបញ្ហា', en: 'Issue Resolution', khDesc: 'ការដោះស្រាយបញ្ហាសិស្ស', desc: 'Resolving student issues', max: 10, displayOrder: 2, status: 'active' },
+        { id: 173, sectionId: 'sec-1', kh: 'ការទំនាក់ទំនងមាតាបិតា', en: 'Parent Communication', khDesc: 'ការទំនាក់ទំនងជាមួយមាតាបិតា', desc: 'Communicating with parents', max: 10, displayOrder: 3, status: 'active' },
+        { id: 174, sectionId: 'sec-2', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍', desc: 'Professional enthusiasm', max: 10, displayOrder: 4, status: 'active' },
+        { id: 175, sectionId: 'sec-2', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនង', desc: 'Effective communication', max: 10, displayOrder: 5, status: 'active' },
+        { id: 176, sectionId: 'sec-2', kh: 'ការសហការក្រុម', en: 'Teamwork', khDesc: 'ការធ្វើការជាក្រុម', desc: 'Working well with others', max: 10, displayOrder: 6, status: 'active' }
+      ]},
+      { id: 'cfg-nurse', position: 'Nurse', weightingScheme: 'campus_60_40', sections: [
+        { id: 'sec-1', name: 'Clinical Skills', khName: 'ជំនាញគ្លីនិក', weight: 55, displayOrder: 0, status: 'active' },
+        { id: 'sec-2', name: 'Professional Conduct', khName: 'ឥរិយាបទវិជ្ជាជីវៈ', weight: 45, displayOrder: 1, status: 'active' }
+      ], criteria: [
+        { id: 177, sectionId: 'sec-1', kh: 'ជំនាញពេទ្យ', en: 'Nursing Skills', khDesc: 'ជំនាញថែទាំសុខភាព', desc: 'Healthcare and nursing skills', max: 10, displayOrder: 0, status: 'active' },
+        { id: 178, sectionId: 'sec-1', kh: 'ការថែទាំសិស្ស', en: 'Student Care', khDesc: 'ការថែទាំសុខភាពសិស្ស', desc: 'Caring for student health', max: 10, displayOrder: 1, status: 'active' },
+        { id: 179, sectionId: 'sec-1', kh: 'ការដោះស្រាយបន្ទាន់', en: 'Emergency Response', khDesc: 'ការដោះស្រាយស្ថានការណ៍បន្ទាន់', desc: 'Handling medical emergencies', max: 10, displayOrder: 2, status: 'active' },
+        { id: 180, sectionId: 'sec-1', kh: 'អនាម័យ និងសុវត្ថិភាព', en: 'Hygiene & Safety', khDesc: 'ការរក្សាអនាម័យ និងសុវត្ថិភាព', desc: 'Maintaining hygiene standards', max: 10, displayOrder: 3, status: 'active' },
+        { id: 181, sectionId: 'sec-2', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍', desc: 'Professional enthusiasm', max: 10, displayOrder: 4, status: 'active' },
+        { id: 182, sectionId: 'sec-2', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនងជាមួយសិស្ស', desc: 'Communicating with students', max: 10, displayOrder: 5, status: 'active' },
+        { id: 183, sectionId: 'sec-2', kh: 'ភាពឯកជន', en: 'Confidentiality', khDesc: 'ការរក្សាការសម្ងាត់វេជ្ជសាស្ត្រ', desc: 'Maintaining medical confidentiality', max: 10, displayOrder: 6, status: 'active' }
+      ]},
+      { id: 'cfg-lab-assistant', position: 'Laboratory Assistant', weightingScheme: 'campus_60_40', sections: [
+        { id: 'sec-1', name: 'Technical Skills', khName: 'ជំនាញបច្ចេកទេស', weight: 55, displayOrder: 0, status: 'active' },
+        { id: 'sec-2', name: 'Core Values', khName: 'តម្លៃ និងឥរិយាបទ', weight: 45, displayOrder: 1, status: 'active' }
+      ], criteria: [
+        { id: 184, sectionId: 'sec-1', kh: 'ជំនាញបច្ចេកទេស', en: 'Technical Proficiency', khDesc: 'ជំនាញប្រើប្រាស់ឧបករណ៍', desc: 'Proficiency with lab equipment', max: 10, displayOrder: 0, status: 'active' },
+        { id: 185, sectionId: 'sec-1', kh: 'សុវត្ថិភាព', en: 'Lab Safety', khDesc: 'ការគោរពតាមស្តង់ដាសុវត្ថិភាព', desc: 'Following safety protocols', max: 10, displayOrder: 1, status: 'active' },
+        { id: 186, sectionId: 'sec-1', kh: 'ការរៀបចំឧបករណ៍', en: 'Equipment Preparation', khDesc: 'ការរៀបចំ និងថែទាំឧបករណ៍', desc: 'Preparing and maintaining equipment', max: 10, displayOrder: 2, status: 'active' },
+        { id: 187, sectionId: 'sec-2', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍', desc: 'Professional enthusiasm', max: 10, displayOrder: 3, status: 'active' },
+        { id: 188, sectionId: 'sec-2', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនង', desc: 'Effective communication', max: 10, displayOrder: 4, status: 'active' },
+        { id: 189, sectionId: 'sec-2', kh: 'ភាពត្រឹមត្រូវ', en: 'Accuracy', khDesc: 'ភាពត្រឹមត្រូវក្នុងការងារ', desc: 'Attention to detail', max: 10, displayOrder: 5, status: 'active' }
+      ]},
+      { id: 'cfg-librarian', position: 'Librarian', weightingScheme: 'campus_60_40', sections: [
+        { id: 'sec-1', name: 'Library Management', khName: 'ការគ្រប់គ្រងបណ្ណាល័យ', weight: 55, displayOrder: 0, status: 'active' },
+        { id: 'sec-2', name: 'Core Values', khName: 'តម្លៃ និងឥរិយាបទ', weight: 45, displayOrder: 1, status: 'active' }
+      ], criteria: [
+        { id: 190, sectionId: 'sec-1', kh: 'ការគ្រប់គ្រងសៀវភៅ', en: 'Book Management', khDesc: 'ការគ្រប់គ្រង និងរៀបចំសៀវភៅ', desc: 'Managing and organizing books', max: 10, displayOrder: 0, status: 'active' },
+        { id: 191, sectionId: 'sec-1', kh: 'សេវាកម្មបណ្ណាល័យ', en: 'Library Services', khDesc: 'ការផ្តល់សេវាកម្មដល់អ្នកអាន', desc: 'Providing services to readers', max: 10, displayOrder: 1, status: 'active' },
+        { id: 192, sectionId: 'sec-1', kh: 'ប្រព័ន្ធព័ត៌មាន', en: 'Information Systems', khDesc: 'ប្រើប្រាស់ប្រព័ន្ធព័ត៌មានបណ្ណាល័យ', desc: 'Using library information systems', max: 10, displayOrder: 2, status: 'active' },
+        { id: 193, sectionId: 'sec-1', kh: 'ការរៀបចំឃ្លាំងសៀវភៅ', en: 'Shelf Organization', khDesc: 'ការរៀបចំ និងថែទាំឃ្លាំងសៀវភៅ', desc: 'Organizing book shelves and storage', max: 10, displayOrder: 3, status: 'active' },
+        { id: 194, sectionId: 'sec-2', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍', desc: 'Professional enthusiasm', max: 10, displayOrder: 4, status: 'active' },
+        { id: 195, sectionId: 'sec-2', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនងជាមួយសិស្ស', desc: 'Communicating with students', max: 10, displayOrder: 5, status: 'active' },
+        { id: 196, sectionId: 'sec-2', kh: 'ភាពអត់ធ្មត់', en: 'Patience', khDesc: 'ភាពអត់ធ្មត់ក្នុងការបម្រើ', desc: 'Patience in serving readers', max: 10, displayOrder: 6, status: 'active' }
+      ]},
+      { id: 'cfg-gep-officer', position: 'GEP Officer', weightingScheme: 'campus_60_40', sections: [
+        { id: 'sec-1', name: 'Project Management', khName: 'ការគ្រប់គ្រងគម្រោង', weight: 55, displayOrder: 0, status: 'active' },
+        { id: 'sec-2', name: 'Core Values', khName: 'តម្លៃ និងឥរិយាបទ', weight: 45, displayOrder: 1, status: 'active' }
+      ], criteria: [
+        { id: 197, sectionId: 'sec-1', kh: 'ការគ្រប់គ្រងគម្រោង', en: 'Project Management', khDesc: 'ការរៀបចំ និងអនុវត្តគម្រោង', desc: 'Planning and executing projects', max: 10, displayOrder: 0, status: 'active' },
+        { id: 198, sectionId: 'sec-1', kh: 'ជំនាញបច្ចេកទេស', en: 'Technical Skills', khDesc: 'ជំនាញបច្ចេកទេសទាក់ទង GEP', desc: 'Technical skills related to GEP', max: 10, displayOrder: 1, status: 'active' },
+        { id: 199, sectionId: 'sec-1', kh: 'ការរៀបចំរបាយការណ៍', en: 'Report Writing', khDesc: 'ការរៀបចំរបាយការណ៍', desc: 'Preparing reports and documentation', max: 10, displayOrder: 2, status: 'active' },
+        { id: 200, sectionId: 'sec-2', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍', desc: 'Professional enthusiasm', max: 10, displayOrder: 3, status: 'active' },
+        { id: 201, sectionId: 'sec-2', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនង', desc: 'Effective communication', max: 10, displayOrder: 4, status: 'active' },
+        { id: 202, sectionId: 'sec-2', kh: 'ការសហការក្រុម', en: 'Teamwork', khDesc: 'ការធ្វើការជាក្រុម', desc: 'Working well with others', max: 10, displayOrder: 5, status: 'active' }
+      ]},
+      { id: 'cfg-ta', position: 'Teaching Assistant (TA)', weightingScheme: 'campus_60_40', sections: [
+        { id: 'sec-1', name: 'Teaching Support', khName: 'ការគាំទ្រការបង្រៀន', weight: 55, displayOrder: 0, status: 'active' },
+        { id: 'sec-2', name: 'Core Values', khName: 'តម្លៃ និងឥរិយាបទ', weight: 45, displayOrder: 1, status: 'active' }
+      ], criteria: [
+        { id: 203, sectionId: 'sec-1', kh: 'ការជួយគ្រូបង្រៀន', en: 'Teacher Support', khDesc: 'ការជួយគ្រូក្នុងការបង្រៀន', desc: 'Assisting teachers in the classroom', max: 10, displayOrder: 0, status: 'active' },
+        { id: 204, sectionId: 'sec-1', kh: 'ការត្រៀមសម្ភារៈ', en: 'Material Preparation', khDesc: 'ការត្រៀមសម្ភារៈបង្រៀន', desc: 'Preparing teaching materials', max: 10, displayOrder: 1, status: 'active' },
+        { id: 205, sectionId: 'sec-1', kh: 'ការគ្រប់គ្រងសិស្ស', en: 'Student Management', khDesc: 'ការជួយគ្រប់គ្រងសិស្ស', desc: 'Helping manage student behavior', max: 10, displayOrder: 2, status: 'active' },
+        { id: 206, sectionId: 'sec-1', kh: 'ការប្រើប្រាស់ប្រព័ន្ធបច្ចេកវិទ្យា', en: 'Technology Use', khDesc: 'ជំនាញប្រើប្រាស់ប្រព័ន្ធបច្ចេកវិទ្យា', desc: 'Using educational technology', max: 10, displayOrder: 3, status: 'active' },
+        { id: 207, sectionId: 'sec-2', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍', desc: 'Professional enthusiasm', max: 10, displayOrder: 4, status: 'active' },
+        { id: 208, sectionId: 'sec-2', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនងជាមួយគ្រូ និងសិស្ស', desc: 'Communicating with teachers and students', max: 10, displayOrder: 5, status: 'active' },
+        { id: 209, sectionId: 'sec-2', kh: 'ការសហការ', en: 'Collaboration', khDesc: 'ការសហការជាមួយគ្រូបង្រៀន', desc: 'Collaborating with teaching staff', max: 10, displayOrder: 6, status: 'active' }
+      ]},
+      { id: 'cfg-nanny', position: 'Nanny', weightingScheme: 'campus_60_40', sections: [
+        { id: 'sec-1', name: 'Child Care', khName: 'ការថែទាំកុមារ', weight: 55, displayOrder: 0, status: 'active' },
+        { id: 'sec-2', name: 'Core Values', khName: 'តម្លៃ និងឥរិយាបទ', weight: 45, displayOrder: 1, status: 'active' }
+      ], criteria: [
+        { id: 210, sectionId: 'sec-1', kh: 'ការថែទាំកុមារ', en: 'Child Care', khDesc: 'ការថែទាំ និងយកចិត្តទុកដាក់កុមារ', desc: 'Caring for and attending to children', max: 10, displayOrder: 0, status: 'active' },
+        { id: 211, sectionId: 'sec-1', kh: 'សុវត្ថិភាពកុមារ', en: 'Child Safety', khDesc: 'ការរក្សាសុវត្ថិភាពកុមារ', desc: 'Ensuring child safety', max: 10, displayOrder: 1, status: 'active' },
+        { id: 212, sectionId: 'sec-1', kh: 'អនាម័យ', en: 'Hygiene', khDesc: 'ការរក្សាអនាម័យកុមារ', desc: 'Maintaining child hygiene', max: 10, displayOrder: 2, status: 'active' },
+        { id: 213, sectionId: 'sec-2', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍', desc: 'Professional enthusiasm', max: 10, displayOrder: 3, status: 'active' },
+        { id: 214, sectionId: 'sec-2', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនងជាមួយកុមារ និងមាតាបិតា', desc: 'Communicating with children and parents', max: 10, displayOrder: 4, status: 'active' },
+        { id: 215, sectionId: 'sec-2', kh: 'ភាពអត់ធ្មត់', en: 'Patience', khDesc: 'ភាពអត់ធ្មត់ក្នុងការថែទាំ', desc: 'Patience in child care', max: 10, displayOrder: 5, status: 'active' }
+      ]},
+      { id: 'cfg-discipline-officer', position: 'Discipline Officer', weightingScheme: 'campus_60_40', sections: [
+        { id: 'sec-1', name: 'Discipline Management', khName: 'ការគ្រប់គ្រងវិន័យ', weight: 55, displayOrder: 0, status: 'active' },
+        { id: 'sec-2', name: 'Core Values', khName: 'តម្លៃ និងឥរិយាបទ', weight: 45, displayOrder: 1, status: 'active' }
+      ], criteria: [
+        { id: 216, sectionId: 'sec-1', kh: 'ការគ្រប់គ្រងវិន័យសិស្ស', en: 'Student Discipline', khDesc: 'ការគ្រប់គ្រង និងអនុវត្តវិន័យសិស្ស', desc: 'Managing and enforcing student discipline', max: 10, displayOrder: 0, status: 'active' },
+        { id: 217, sectionId: 'sec-1', kh: 'ការដោះស្រាយទំនាស់', en: 'Conflict Resolution', khDesc: 'ការដោះស្រាយទំនាស់រវាងសិស្ស', desc: 'Resolving conflicts between students', max: 10, displayOrder: 1, status: 'active' },
+        { id: 218, sectionId: 'sec-1', kh: 'ការតាមដានសិស្ស', en: 'Student Monitoring', khDesc: 'ការតាមដានឥរិយាបទសិស្ស', desc: 'Monitoring student behavior', max: 10, displayOrder: 2, status: 'active' },
+        { id: 219, sectionId: 'sec-1', kh: 'ការរៀបចំរបាយការណ៍', en: 'Report Writing', khDesc: 'ការរៀបចំរបាយការណ៍វិន័យ', desc: 'Preparing discipline reports', max: 10, displayOrder: 3, status: 'active' },
+        { id: 220, sectionId: 'sec-2', kh: 'អាកប្បកិរិយា', en: 'Attitude', khDesc: 'ចំណាប់អារម្មណ៍', desc: 'Professional enthusiasm', max: 10, displayOrder: 4, status: 'active' },
+        { id: 221, sectionId: 'sec-2', kh: 'ការទំនាក់ទំនង', en: 'Communication', khDesc: 'ការទំនាក់ទំនងជាមួយសិស្ស និងមាតាបិតា', desc: 'Communicating with students and parents', max: 10, displayOrder: 5, status: 'active' },
+        { id: 222, sectionId: 'sec-2', kh: 'ភាពយុត្តិ�ម៌', en: 'Fairness', khDesc: 'ភាពយុត្តិ�ម៌ក្នុងការអនុវត្តវិន័យ', desc: 'Fairness in enforcing discipline', max: 10, displayOrder: 6, status: 'active' }
+      ]}
+    ])
   }
 };
 
