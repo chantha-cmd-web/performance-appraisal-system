@@ -1,6 +1,137 @@
-const DB_VERSION = '11';
+import pg from 'pg';
+const { Pool } = pg;
+import bcrypt from 'bcryptjs';
 
-const defaultEvaluationConfig = JSON.stringify({
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/performance_system',
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+});
+
+pool.on('error', (err) => {
+  console.error('Unexpected PostgreSQL pool error:', err);
+});
+
+const SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS "users" (
+  "id" TEXT PRIMARY KEY,
+  "name" TEXT NOT NULL,
+  "password" TEXT NOT NULL,
+  "role" TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "employees" (
+  "id" TEXT PRIMARY KEY,
+  "name" TEXT NOT NULL,
+  "khmerName" TEXT DEFAULT '',
+  "campus" TEXT DEFAULT '',
+  "department" TEXT DEFAULT '',
+  "position" TEXT DEFAULT '',
+  "category" TEXT DEFAULT '',
+  "supervisorId" TEXT DEFAULT '',
+  "supporterId" TEXT DEFAULT '',
+  "evalModel" TEXT DEFAULT '',
+  "evalPeriod" TEXT DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS "evaluations" (
+  "id" SERIAL PRIMARY KEY,
+  "employeeId" TEXT NOT NULL,
+  "employeeName" TEXT NOT NULL,
+  "campus" TEXT NOT NULL,
+  "department" TEXT DEFAULT '',
+  "position" TEXT NOT NULL,
+  "appraiser" TEXT NOT NULL,
+  "supporter" TEXT DEFAULT '',
+  "reviewDate" TEXT NOT NULL,
+  "weightScheme" TEXT NOT NULL,
+  "evaluationType" TEXT DEFAULT 'management',
+  "evalPeriod" TEXT DEFAULT '',
+  "totalSelf" REAL NOT NULL DEFAULT 0,
+  "totalSuper" REAL NOT NULL DEFAULT 0,
+  "overallScore" REAL NOT NULL DEFAULT 0,
+  "evaluatorComments" TEXT DEFAULT '',
+  "status" TEXT DEFAULT 'Draft',
+  "createdBy" TEXT NOT NULL,
+  "createdByName" TEXT NOT NULL,
+  "createdAt" TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS "criteria_scores" (
+  "id" SERIAL PRIMARY KEY,
+  "evaluationId" INTEGER REFERENCES "evaluations"("id") ON DELETE CASCADE,
+  "criteriaId" INTEGER,
+  "selfScore" REAL DEFAULT 0,
+  "superScore" REAL DEFAULT 0,
+  "supporterScore" REAL DEFAULT 0,
+  "managementScore" REAL DEFAULT 0,
+  "aspScore" REAL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS "peer_feedback" (
+  "id" SERIAL PRIMARY KEY,
+  "evaluationId" INTEGER REFERENCES "evaluations"("id") ON DELETE CASCADE,
+  "peerName" TEXT,
+  "feedback" TEXT,
+  "score" REAL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS "audit_logs" (
+  "id" SERIAL PRIMARY KEY,
+  "userId" TEXT NOT NULL,
+  "userName" TEXT NOT NULL,
+  "action" TEXT NOT NULL,
+  "details" TEXT,
+  "timestamp" TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS "app_settings" (
+  "key" TEXT PRIMARY KEY,
+  "value" TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "notifications" (
+  "id" TEXT PRIMARY KEY,
+  "userId" TEXT NOT NULL,
+  "type" TEXT DEFAULT 'info',
+  "title" TEXT DEFAULT '',
+  "message" TEXT NOT NULL,
+  "khMessage" TEXT DEFAULT '',
+  "link" TEXT DEFAULT '',
+  "evaluationId" TEXT,
+  "read" BOOLEAN DEFAULT FALSE,
+  "createdAt" TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS "idx_evaluations_employeeId" ON "evaluations"("employeeId");
+CREATE INDEX IF NOT EXISTS "idx_evaluations_appraiser" ON "evaluations"("appraiser");
+CREATE INDEX IF NOT EXISTS "idx_evaluations_supporter" ON "evaluations"("supporter");
+CREATE INDEX IF NOT EXISTS "idx_evaluations_createdBy" ON "evaluations"("createdBy");
+CREATE INDEX IF NOT EXISTS "idx_evaluations_status" ON "evaluations"("status");
+CREATE INDEX IF NOT EXISTS "idx_evaluations_createdAt" ON "evaluations"("createdAt" DESC);
+CREATE INDEX IF NOT EXISTS "idx_criteria_scores_evaluationId" ON "criteria_scores"("evaluationId");
+CREATE INDEX IF NOT EXISTS "idx_peer_feedback_evaluationId" ON "peer_feedback"("evaluationId");
+CREATE INDEX IF NOT EXISTS "idx_audit_logs_timestamp" ON "audit_logs"("timestamp" DESC);
+CREATE INDEX IF NOT EXISTS "idx_notifications_userId" ON "notifications"("userId");
+CREATE INDEX IF NOT EXISTS "idx_notifications_read" ON "notifications"("read");
+CREATE INDEX IF NOT EXISTS "idx_employees_supervisorId" ON "employees"("supervisorId");
+CREATE INDEX IF NOT EXISTS "idx_employees_supporterId" ON "employees"("supporterId");
+`;
+
+const SEED_SETTINGS_SQL = `
+INSERT INTO "app_settings" ("key", "value")
+VALUES ('evaluation_config', $1)
+ON CONFLICT ("key") DO NOTHING;
+`;
+
+const SEED_USERS_SQL = `
+INSERT INTO "users" ("id", "name", "password", "role")
+VALUES ($1, $2, $3, $4)
+ON CONFLICT ("id") DO NOTHING;
+`;
+
+const DEFAULT_EVAL_CONFIG = JSON.stringify({
   types: [
     { id: 'management', label: 'Management / ការគ្រប់គ្រង' },
     { id: 'teacher', label: 'Teacher / គ្រូបង្រៀន' },
@@ -71,105 +202,42 @@ const defaultEvaluationConfig = JSON.stringify({
   }
 });
 
-export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-  let url = '';
-  if (typeof input === 'string') {
-    url = input;
-  } else if (input instanceof Request) {
-    url = input.url;
-  } else if (input instanceof URL) {
-    url = input.toString();
-  } else if (input && typeof (input as any).toString === 'function') {
-    url = (input as any).toString();
+export async function migrate() {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(SCHEMA_SQL);
+
+    await client.query(SEED_USERS_SQL, ['superadmin', 'Super Administrator', bcrypt.hashSync('super@2026', 10), 'superadmin']);
+    await client.query(SEED_USERS_SQL, ['admin', 'Administrator', bcrypt.hashSync('admin@123', 10), 'admin']);
+
+    await client.query(SEED_SETTINGS_SQL, [DEFAULT_EVAL_CONFIG]);
+
+    await client.query('COMMIT');
+    console.log('PostgreSQL migration and seeding completed successfully.');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('PostgreSQL migration failed:', err);
+    throw err;
+  } finally {
+    client.release();
   }
+}
 
-  if (url.includes('/api/')) {
-    return window.fetch(input, init);
-  }
-  return window.fetch(input, init);
-};
-
-type RealtimeEventHandler = (data: any) => void;
-
-let wsInstance: WebSocket | null = null;
-let eventHandlers: Map<string, Set<RealtimeEventHandler>> = new Map();
-let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
-let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 50;
-
-export function connectRealtime(token: string) {
-  if (wsInstance && (wsInstance.readyState === WebSocket.OPEN || wsInstance.readyState === WebSocket.CONNECTING)) {
-    return;
-  }
-
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${protocol}//${window.location.host}/ws?token=${token}`;
-
-  wsInstance = new WebSocket(wsUrl);
-
-  wsInstance.onopen = () => {
-    reconnectAttempts = 0;
-    console.log('[Realtime] Connected');
-  };
-
-  wsInstance.onmessage = (event) => {
+export function transaction<T>(fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
+  return pool.connect().then(async (client) => {
     try {
-      const { event: eventName, data } = JSON.parse(event.data);
-      const handlers = eventHandlers.get(eventName);
-      if (handlers) {
-        handlers.forEach(handler => handler(data));
-      }
-      const wildcardHandlers = eventHandlers.get('*');
-      if (wildcardHandlers) {
-        wildcardHandlers.forEach(handler => handler({ event: eventName, data }));
-      }
-    } catch (e) {
-      console.error('[Realtime] Message parse error:', e);
+      await client.query('BEGIN');
+      const result = await fn(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
-  };
-
-  wsInstance.onclose = () => {
-    console.log('[Realtime] Disconnected');
-    wsInstance = null;
-    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-      const delay = Math.min(1000 * Math.pow(1.5, reconnectAttempts), 30000);
-      reconnectAttempts++;
-      reconnectTimeout = setTimeout(() => connectRealtime(token), delay);
-    }
-  };
-
-  wsInstance.onerror = () => {
-    wsInstance?.close();
-  };
+  });
 }
 
-export function disconnectRealtime() {
-  if (reconnectTimeout) {
-    clearTimeout(reconnectTimeout);
-    reconnectTimeout = null;
-  }
-  reconnectAttempts = MAX_RECONNECT_ATTEMPTS;
-  if (wsInstance) {
-    wsInstance.close();
-    wsInstance = null;
-  }
-  eventHandlers.clear();
-}
-
-export function subscribeRealtime(event: string, handler: RealtimeEventHandler): () => void {
-  if (!eventHandlers.has(event)) {
-    eventHandlers.set(event, new Set());
-  }
-  eventHandlers.get(event)!.add(handler);
-
-  return () => {
-    eventHandlers.get(event)?.delete(handler);
-    if (eventHandlers.get(event)?.size === 0) {
-      eventHandlers.delete(event);
-    }
-  };
-}
-
-export function isRealtimeConnected(): boolean {
-  return wsInstance !== null && wsInstance.readyState === WebSocket.OPEN;
-}
+export { pool };

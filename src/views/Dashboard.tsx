@@ -23,6 +23,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { generatePdfReport } from '../utils/pdfReport';
 import toast from 'react-hot-toast';
+import { useRealtimeRefresh } from '../hooks/useRealtime';
 
 type SortKey = 'employeeName' | 'employeeId' | 'campus' | 'position' | 'totalSelf' | 'totalSuper' | 'overallScore' | 'status' | 'createdByName' | 'reviewDate';
 type SortDir = 'asc' | 'desc';
@@ -84,8 +85,6 @@ export default function Dashboard() {
   const [currentPage, setCurrentPage] = useState(1);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => { fetchEvals(); }, []);
-
   const fetchEvals = async () => {
     try {
       const res = await apiFetch('/api/evaluations', {
@@ -99,6 +98,10 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
+
+  useEffect(() => { fetchEvals(); }, []);
+
+  useRealtimeRefresh(['evaluations:updated', 'data:imported', 'data:reset', 'employees:updated'], fetchEvals);
 
   const handleRefresh = async () => {
     setRefreshing(true);

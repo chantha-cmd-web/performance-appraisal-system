@@ -1,5 +1,5 @@
 import { apiFetch } from '../mockApi';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Bell, Check, CheckCheck, Trash2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -7,6 +7,7 @@ import { AppNotification } from '../types';
 import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from '../utils/notifications';
 import { cn } from '../lib/utils';
 import toast from 'react-hot-toast';
+import { useRealtimeRefresh } from '../hooks/useRealtime';
 
 export default function NotificationsBell() {
   const { token, user } = useAuth();
@@ -19,10 +20,8 @@ export default function NotificationsBell() {
   const myNotifications = user ? notifications.filter(n => n.userId === user.id) : [];
   const unreadCount = myNotifications.filter(n => !n.read).length;
 
-  useEffect(() => {
-    if (!token) return;
-
-    const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
+      if (!token) return;
       const data = await fetchNotifications(token);
       setNotifications(data);
 
@@ -37,12 +36,15 @@ export default function NotificationsBell() {
           setHasShownToast(true);
         }
       }
-    };
+    }, [token, user, hasShownToast]);
 
-    loadNotifications();
-    const interval = setInterval(loadNotifications, 30000);
-    return () => clearInterval(interval);
-  }, [token, user, hasShownToast]);
+    useEffect(() => {
+      loadNotifications();
+      const interval = setInterval(loadNotifications, 30000);
+      return () => clearInterval(interval);
+    }, [loadNotifications]);
+
+    useRealtimeRefresh(['evaluations:updated', 'notifications:updated', 'users:updated', 'employees:updated'], loadNotifications);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

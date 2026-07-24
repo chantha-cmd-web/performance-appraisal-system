@@ -7,5 +7,7 @@ coverage/
 *.db
 *-shm
 *-wal
-.env*
-!.env.example
+.env
+.env.local
+.env.*.local
+database.sqlite
