@@ -386,7 +386,7 @@ app.post('/api/data/import', authenticateToken, requireSuperAdmin, async (req, r
 app.post('/api/data/reset/:type', authenticateToken, requireSuperAdmin, async (req, res) => {
   try {
     const { type } = req.params;
-    if (!['evaluations', 'users', 'all'].includes(type)) {
+    if (!['evaluations', 'users', 'employees', 'all'].includes(type)) {
       return res.status(400).json({ error: 'Invalid reset type' });
     }
     await transaction(async (client) => {
@@ -396,10 +396,13 @@ app.post('/api/data/reset/:type', authenticateToken, requireSuperAdmin, async (r
         await client.query('DELETE FROM "evaluations"');
       } else if (type === 'users') {
         await client.query("DELETE FROM \"users\" WHERE \"id\" != 'superadmin'");
+      } else if (type === 'employees') {
+        await client.query('DELETE FROM "employees"');
       } else if (type === 'all') {
         await client.query('DELETE FROM "criteria_scores"');
         await client.query('DELETE FROM "peer_feedback"');
         await client.query('DELETE FROM "evaluations"');
+        await client.query('DELETE FROM "employees"');
         await client.query("DELETE FROM \"users\" WHERE \"id\" != 'superadmin'");
         await client.query('DELETE FROM "app_settings"');
       }
@@ -648,6 +651,19 @@ app.get('/api/audit-logs', authenticateToken, requireSuperAdmin, async (req, res
   try {
     const result = await pool.query('SELECT * FROM "audit_logs" ORDER BY "timestamp" DESC LIMIT 500');
     res.json(result.rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/audit-logs', authenticateToken, async (req, res) => {
+  try {
+    const { userId, userName, action, details } = req.body;
+    await pool.query(
+      'INSERT INTO "audit_logs" ("userId", "userName", "action", "details") VALUES ($1, $2, $3, $4)',
+      [userId || req.user!.id, userName || req.user!.name, action, details || '']
+    );
+    res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

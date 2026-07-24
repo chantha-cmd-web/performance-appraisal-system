@@ -475,7 +475,8 @@ async function checkServerAvailable(): Promise<boolean> {
     const timeout = setTimeout(() => controller.abort(), 2000);
     const res = await window.fetch('/api/auth/me', { signal: controller.signal });
     clearTimeout(timeout);
-    return res.status !== 404 || true;
+    const ct = res.headers.get('content-type') || '';
+    return ct.includes('application/json');
   } catch {
     return false;
   }
