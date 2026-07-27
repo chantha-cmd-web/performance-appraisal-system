@@ -16,5 +16,8 @@ export default defineConfig(() => {
       hmr: true,
       watch: {},
     },
+    define: {
+      'import.meta.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || ''),
+    },
   };
 });

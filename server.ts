@@ -10,6 +10,7 @@ import { pool, migrate, transaction } from './db';
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-2026';
+const CORS_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
 
 declare global {
   namespace Express {
@@ -120,6 +121,18 @@ const logAudit = async (userId: string, userName: string, action: string, detail
 
 const app = express();
 app.use(express.json());
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const origin = req.headers.origin;
+  if (CORS_ORIGINS.length === 0 || (origin && CORS_ORIGINS.includes(origin))) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
 const server = http.createServer(app);
 
 // --- AUTH ROUTES ---

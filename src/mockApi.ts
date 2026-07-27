@@ -1,3 +1,5 @@
+import { apiUrl, wsUrl } from './config';
+
 const DB_VERSION = '12';
 
 const defaultEvaluationConfig = JSON.stringify({
@@ -654,8 +656,9 @@ function handleMockRequest(url: string, method: string, body: any, token: string
 async function checkServerAvailable(): Promise<boolean> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2000);
-    const res = await window.fetch('/api/auth/me', { signal: controller.signal });
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    const checkUrl = apiUrl('/api/auth/me');
+    const res = await window.fetch(checkUrl, { signal: controller.signal });
     clearTimeout(timeout);
     const ct = res.headers.get('content-type') || '';
     return ct.includes('application/json');
@@ -665,9 +668,9 @@ async function checkServerAvailable(): Promise<boolean> {
 }
 
 export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-  const url = extractUrl(input);
+  const rawUrl = extractUrl(input);
 
-  if (url.includes('/api/')) {
+  if (rawUrl.includes('/api/')) {
     if (serverAvailable === null) {
       serverAvailable = await checkServerAvailable();
       if (!serverAvailable) {
@@ -675,21 +678,23 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
       }
     }
 
+    const fullUrl = apiUrl(rawUrl);
+
     if (serverAvailable) {
       try {
-        return await window.fetch(input, init);
+        return await window.fetch(fullUrl, init);
       } catch {
         serverAvailable = false;
         initMockDb();
       }
     }
 
-    if (!serverAvailable && url.includes('/api/auth/me')) {
+    if (!serverAvailable && rawUrl.includes('/api/auth/me')) {
       const recovered = await checkServerAvailable();
       if (recovered) {
         serverAvailable = true;
         try {
-          return await window.fetch(input, init);
+          return await window.fetch(fullUrl, init);
         } catch {
           serverAvailable = false;
           initMockDb();
@@ -702,7 +707,7 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
     const token = extractToken(init);
     const db = getDb();
     await new Promise(r => setTimeout(r, 50));
-    return handleMockRequest(url, method, body, token, db);
+    return handleMockRequest(rawUrl, method, body, token, db);
   }
 
   return window.fetch(input, init);
@@ -729,11 +734,11 @@ export function connectRealtime(token: string) {
     return;
   }
 
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${protocol}//${window.location.host}/ws?token=${token}`;
+  const wsBase = wsUrl('/ws');
+  const wsConnUrl = `${wsBase}?token=${token}`;
 
   try {
-    wsInstance = new WebSocket(wsUrl);
+    wsInstance = new WebSocket(wsConnUrl);
   } catch {
     scheduleReconnect(token);
     return;
