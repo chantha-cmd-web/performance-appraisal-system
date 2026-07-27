@@ -684,6 +684,19 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
       }
     }
 
+    if (!serverAvailable && url.includes('/api/auth/me')) {
+      const recovered = await checkServerAvailable();
+      if (recovered) {
+        serverAvailable = true;
+        try {
+          return await window.fetch(input, init);
+        } catch {
+          serverAvailable = false;
+          initMockDb();
+        }
+      }
+    }
+
     const method = init?.method || 'GET';
     const body = getJsonBody(init);
     const token = extractToken(init);
@@ -703,8 +716,15 @@ let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 50;
 
+function scheduleReconnect(token: string) {
+  if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+    const delay = Math.min(1000 * Math.pow(1.5, reconnectAttempts), 30000);
+    reconnectAttempts++;
+    reconnectTimeout = setTimeout(() => connectRealtime(token), delay);
+  }
+}
+
 export function connectRealtime(token: string) {
-  if (serverAvailable === false) return;
   if (wsInstance && (wsInstance.readyState === WebSocket.OPEN || wsInstance.readyState === WebSocket.CONNECTING)) {
     return;
   }
@@ -712,10 +732,16 @@ export function connectRealtime(token: string) {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsUrl = `${protocol}//${window.location.host}/ws?token=${token}`;
 
-  wsInstance = new WebSocket(wsUrl);
+  try {
+    wsInstance = new WebSocket(wsUrl);
+  } catch {
+    scheduleReconnect(token);
+    return;
+  }
 
   wsInstance.onopen = () => {
     reconnectAttempts = 0;
+    serverAvailable = true;
     console.log('[Realtime] Connected');
   };
 
@@ -738,11 +764,7 @@ export function connectRealtime(token: string) {
   wsInstance.onclose = () => {
     console.log('[Realtime] Disconnected');
     wsInstance = null;
-    if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS && serverAvailable !== false) {
-      const delay = Math.min(1000 * Math.pow(1.5, reconnectAttempts), 30000);
-      reconnectAttempts++;
-      reconnectTimeout = setTimeout(() => connectRealtime(token), delay);
-    }
+    scheduleReconnect(token);
   };
 
   wsInstance.onerror = () => {

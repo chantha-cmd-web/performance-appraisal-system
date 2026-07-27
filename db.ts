@@ -2,11 +2,15 @@ import pg from 'pg';
 const { Pool } = pg;
 import bcrypt from 'bcryptjs';
 
+const databaseUrl = process.env.DATABASE_URL || 'postgresql://localhost:5432/performance_system';
+const isCloudDb = databaseUrl.includes('neon.tech') || databaseUrl.includes('supabase') || databaseUrl.includes('render.com') || databaseUrl.includes('railway.app') || databaseUrl.includes('aivencloud.com') || databaseUrl.includes('?sslmode=');
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/performance_system',
+  connectionString: databaseUrl,
+  ssl: isCloudDb ? { rejectUnauthorized: false } : undefined,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: 10000,
 });
 
 pool.on('error', (err) => {

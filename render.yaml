@@ -6,6 +6,7 @@ services:
     buildCommand: npm ci && npm run build
     startCommand: node dist/server.cjs
     healthCheckPath: /api/auth/me
+    autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production
@@ -15,3 +16,5 @@ services:
         generateValue: true
       - key: PORT
         value: 10000
+      - key: DATABASE_CONNECTION_POOLING
+        value: "true"
