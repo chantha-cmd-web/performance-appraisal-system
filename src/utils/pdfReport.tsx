@@ -337,21 +337,14 @@ function buildBodyContent(data: PdfReportData, pageNum: number): string {
 
 function getStyles(): string {
   return `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+Khmer:wght@300;400;500;600;700&display=swap');
-
   * { margin:0; padding:0; box-sizing:border-box; }
 
   body {
     font-family: 'Inter', 'Noto Sans Khmer', system-ui, sans-serif;
-    background: #f1f5f9;
+    background: #ffffff;
     color: #1e293b;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-  }
-
-  @page {
-    size: A4 portrait;
-    margin: 0;
   }
 
   .page {
@@ -998,7 +991,8 @@ function getStyles(): string {
 }
 
 export async function generatePdfReport(data: PdfReportData): Promise<void> {
-  const html2pdf = (await import('html2pdf.js')).default;
+  const html2canvas = (await import('html2canvas')).default;
+  const { jsPDF } = await import('jspdf');
 
   let bodyContent = buildBodyContent(data, 1);
 
@@ -1022,38 +1016,36 @@ export async function generatePdfReport(data: PdfReportData): Promise<void> {
   container.appendChild(styleEl);
 
   const contentWrap = document.createElement('div');
-  contentWrap.style.cssText = 'font-family:Inter,Noto Sans Khmer,system-ui,sans-serif;color:#1e293b;';
+  contentWrap.style.cssText = 'font-family:Inter,sans-serif;color:#1e293b;';
   contentWrap.innerHTML = bodyContent;
   container.appendChild(contentWrap);
 
   document.body.appendChild(container);
 
-  await new Promise(r => setTimeout(r, 2000));
+  await new Promise(r => setTimeout(r, 1500));
 
   const filename = `Performance_Report_${data.evaluation.employeeName.replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
 
-  const opt = {
-    margin: 0,
-    filename,
-    image: { type: 'jpeg', quality: 0.95 },
-    html2canvas: {
-      scale: 2,
-      useCORS: true,
-      letterRendering: true,
-      backgroundColor: '#ffffff',
-      logging: false,
-      width: 794,
-      windowWidth: 794,
-    },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
-    pagebreak: { mode: ['css'] },
-  };
-
   try {
-    await (html2pdf() as any)
-      .set(opt)
-      .from(container)
-      .save();
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+
+    const pages = container.querySelectorAll('.page');
+    for (let i = 0; i < pages.length; i++) {
+      const pageCanvas = await html2canvas(pages[i] as HTMLElement, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+      });
+      const imgData = pageCanvas.toDataURL('image/jpeg', 0.95);
+      const imgWidth = pdfWidth;
+      const imgHeight = (pageCanvas.height * imgWidth) / pageCanvas.width;
+      if (i > 0) pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+    }
+
+    pdf.save(filename);
   } finally {
     document.body.removeChild(container);
     document.body.removeChild(overlay);
