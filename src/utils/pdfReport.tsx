@@ -206,48 +206,8 @@ function buildBodyContent(data: PdfReportData, pageNum: number): string {
     ${tableRows}
   </table>`;
 
-  const strengths = ev.criteriaScores?.filter(s => (s.superScore || 0) >= 8) || [];
-  const developments = ev.criteriaScores?.filter(s => (s.superScore || 0) < 6) || [];
-
   return `
-<!-- ═══════════════ COVER PAGE ═══════════════ -->
-<div class="page cover-page">
-  <div class="cover-top-bar"></div>
-  <div class="cover-top-gradient"></div>
-  <div class="cover-grid"></div>
-  <div class="cover-content">
-    <div class="cover-icon-wrap">
-      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
-        <path d="M6 12v5c3 3 9 3 12 0v-5"/>
-      </svg>
-    </div>
-    <div class="cover-org-name">Western International School</div>
-    <div class="cover-accent-line"></div>
-    <h1 class="cover-title">Annual Performance<br/>Management System</h1>
-    <h2 class="cover-subtitle">Performance Appraisal Report</h2>
-    <div class="cover-hr"></div>
-
-    <div class="cover-employee-card">
-      <div class="cover-card-label">Employee</div>
-      <div class="cover-card-name">${ev.employeeName}</div>
-      <div class="cover-card-role">${ev.position}${ev.department ? ' — ' + ev.department : ''}</div>
-      <div class="cover-card-meta">
-        <span>ID: ${ev.employeeId}</span>
-        <span class="cover-dot">•</span>
-        <span>${ev.campus}</span>
-      </div>
-    </div>
-
-    <div class="cover-footer-text">
-      Academic Year: ${ev.evalPeriod || '2026'}<br/>
-      Report Generated: ${now}
-    </div>
-  </div>
-  <div class="cover-bottom-bar"></div>
-</div>
-
-<!-- ═══════════════ EMPLOYEE INFO + SUMMARY ═══════════════ -->
+<!-- ═══════════════ SECTION 1: EMPLOYEE INFO + SUMMARY ═══════════════ -->
 <div class="page inner-page">
   <div class="page-header">
     <div class="page-header-left">
@@ -337,7 +297,7 @@ function buildBodyContent(data: PdfReportData, pageNum: number): string {
   </div>
 </div>
 
-<!-- ═══════════════ EVALUATION TABLE PAGE ═══════════════ -->
+<!-- ═══════════════ SECTION 2: SECTION-BY-SECTION EVALUATION ═══════════════ -->
 <div class="page inner-page">
   <div class="page-header">
     <div class="page-header-left">
@@ -366,180 +326,6 @@ function buildBodyContent(data: PdfReportData, pageNum: number): string {
       <span class="weight-summary-label">Overall Score:</span>
       <span class="weight-summary-val" style="color:${rating.color};font-weight:800;">${overallScore.toFixed(1)}% (${rating.label})</span>
     </div>
-  </div>
-
-  <div class="page-footer">
-    <span>Western International School — Annual Performance Management System</span>
-    <span>Page {{PAGE_NUM}} | Confidential | ${now}</span>
-  </div>
-</div>
-
-<!-- ═══════════════ STRENGTHS + DEVELOPMENT ═══════════════ -->
-<div class="page inner-page">
-  <div class="page-header">
-    <div class="page-header-left">
-      <div class="page-header-brand">Western International School</div>
-      <div class="page-header-title">Performance Appraisal Report</div>
-    </div>
-    <div class="page-header-right">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
-      </svg>
-    </div>
-  </div>
-  <div class="page-divider"></div>
-
-  <div class="section-title">Strengths & Development Areas</div>
-  <div class="section-accent"></div>
-
-  <div class="strength-grid">
-    <div class="strength-card strength-card-positive">
-      <div class="strength-header">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 5v14M5 12h14"/>
-        </svg>
-        <span>Strengths</span>
-      </div>
-      ${strengths.length > 0 ? `<ul class="strength-list">
-        ${strengths.slice(0, 8).map(s => {
-          const crit = criteria.find(c => c.id === s.criteriaId);
-          return `<li>${crit?.en || 'Criteria #' + s.criteriaId} — Score: ${s.superScore}/10</li>`;
-        }).join('')}
-      </ul>` : '<div class="strength-empty">No specific strengths recorded.</div>'}
-    </div>
-    <div class="strength-card strength-card-negative">
-      <div class="strength-header">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M5 12h14"/>
-        </svg>
-        <span>Areas for Development</span>
-      </div>
-      ${developments.length > 0 ? `<ul class="strength-list">
-        ${developments.slice(0, 8).map(s => {
-          const crit = criteria.find(c => c.id === s.criteriaId);
-          return `<li>${crit?.en || 'Criteria #' + s.criteriaId} — Score: ${s.superScore}/10</li>`;
-        }).join('')}
-      </ul>` : '<div class="strength-empty">All areas meet expectations.</div>'}
-    </div>
-  </div>
-
-  <div class="section-subtitle">Comments & Recommendations</div>
-  <div class="section-accent-sm"></div>
-
-  <div class="comments-grid">
-    <div class="comment-card">
-      <div class="comment-header">
-        <div class="comment-avatar comment-avatar-purple">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        </div>
-        <div>
-          <div class="comment-author">Employee Self Comments</div>
-          <div class="comment-lang">មតិយោបល់របស់បុគ្គលិក</div>
-        </div>
-      </div>
-      <div class="comment-body">${ev.evaluatorComments || 'No comments provided.'}</div>
-    </div>
-    <div class="comment-card">
-      <div class="comment-header">
-        <div class="comment-avatar comment-avatar-blue">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
-        <div>
-          <div class="comment-author">Supervisor Comments</div>
-          <div class="comment-lang">មតិយោបល់របស់អ្នកគ្រប់គ្រង</div>
-        </div>
-      </div>
-      <div class="comment-body">${ev.evaluatorComments || 'No supervisor comments provided.'}</div>
-    </div>
-    <div class="comment-card">
-      <div class="comment-header">
-        <div class="comment-avatar comment-avatar-green">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
-        </div>
-        <div>
-          <div class="comment-author">Supporter Comments</div>
-          <div class="comment-lang">មតិយោបល់របស់អ្នកគាំទ្រ</div>
-        </div>
-      </div>
-      <div class="comment-body">No supporter comments provided.</div>
-    </div>
-    <div class="comment-card">
-      <div class="comment-header">
-        <div class="comment-avatar comment-avatar-amber">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
-        </div>
-        <div>
-          <div class="comment-author">Management Comments</div>
-          <div class="comment-lang">មតិយោបល់របស់ការិយាល័យ</div>
-        </div>
-      </div>
-      <div class="comment-body">No management comments provided.</div>
-    </div>
-  </div>
-
-  <div class="final-rec">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
-    <div>
-      <div class="final-rec-title">Final Recommendation</div>
-      <div class="final-rec-text">
-        Based on the evaluation results, the employee has achieved an overall score of <strong>${overallScore.toFixed(1)}</strong> (${rating.label} / ${rating.kh}).
-        ${overallScore >= 85 ? 'The employee demonstrates excellent performance and is recommended for recognition.' :
-          overallScore >= 75 ? 'The employee shows very good performance with areas for continued growth.' :
-          overallScore >= 60 ? 'The employee meets expectations with some areas needing improvement.' :
-          'The employee requires targeted support and development in key areas.'}
-      </div>
-    </div>
-  </div>
-
-  <div class="page-footer">
-    <span>Western International School — Annual Performance Management System</span>
-    <span>Page {{PAGE_NUM}} | Confidential | ${now}</span>
-  </div>
-</div>
-
-<!-- ═══════════════ SIGNATURES PAGE ═══════════════ -->
-<div class="page inner-page">
-  <div class="page-header">
-    <div class="page-header-left">
-      <div class="page-header-brand">Western International School</div>
-      <div class="page-header-title">Performance Appraisal Report</div>
-    </div>
-    <div class="page-header-right">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
-      </svg>
-    </div>
-  </div>
-  <div class="page-divider"></div>
-
-  <div class="section-title">Approval & Signatures</div>
-  <div class="section-accent"></div>
-
-  <div class="signatures-grid">
-    ${[
-      { label: 'Employee', kh: 'បុគ្គលិក' },
-      { label: 'Supervisor', kh: 'អ្នកគ្រប់គ្រង' },
-      { label: 'Supporter', kh: 'អ្នកគាំទ្រ' },
-      { label: 'Management', kh: 'ការិយាល័យ' },
-      { label: 'HR Office', kh: 'ការិយាល័យធនធានមនុស្ស' }
-    ].map(s => `
-      <div class="sig-card">
-        <div class="sig-label-kh">${s.kh}</div>
-        <div class="sig-label-en">${s.label}</div>
-        <div class="sig-line-wrap">
-          <div class="sig-line"></div>
-          <div class="sig-line-text">Signature</div>
-        </div>
-        <div class="sig-line-wrap">
-          <div class="sig-line"></div>
-          <div class="sig-line-text">Date</div>
-        </div>
-      </div>
-    `).join('')}
-  </div>
-
-  <div class="sig-footer-note">
-    This document is confidential and intended only for the employee and authorized personnel of Western International School.
   </div>
 
   <div class="page-footer">
