@@ -1008,27 +1008,27 @@ export async function generatePdfReport(data: PdfReportData): Promise<void> {
     return String(pageNum);
   });
 
-  const fullHtml = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8"/>
-<style>${getStyles()}</style>
-</head>
-<body>
-${bodyContent}
-</body>
-</html>`;
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(255,255,255,0.92);z-index:999998;display:flex;align-items:center;justify-content:center;font-family:Inter,sans-serif;font-size:15px;color:#6366f1;font-weight:600;letter-spacing:0.5px;';
+  overlay.textContent = 'Generating PDF...';
+  document.body.appendChild(overlay);
 
-  const iframe = document.createElement('iframe');
-  iframe.style.cssText = 'position:fixed;left:0;top:0;width:794px;height:0;border:none;opacity:0;pointer-events:none;';
-  document.body.appendChild(iframe);
+  const container = document.createElement('div');
+  container.id = 'pdf-export-container';
+  container.style.cssText = 'position:fixed;top:0;left:0;width:794px;z-index:999999;background:white;-webkit-print-color-adjust:exact;print-color-adjust:exact;';
 
-  const iframeDoc = iframe.contentDocument || iframe.contentWindow!.document;
-  iframeDoc.open();
-  iframeDoc.write(fullHtml);
-  iframeDoc.close();
+  const styleEl = document.createElement('style');
+  styleEl.textContent = getStyles();
+  container.appendChild(styleEl);
 
-  await new Promise(r => setTimeout(r, 3000));
+  const contentWrap = document.createElement('div');
+  contentWrap.style.cssText = 'font-family:Inter,Noto Sans Khmer,system-ui,sans-serif;color:#1e293b;';
+  contentWrap.innerHTML = bodyContent;
+  container.appendChild(contentWrap);
+
+  document.body.appendChild(container);
+
+  await new Promise(r => setTimeout(r, 2000));
 
   const filename = `Performance_Report_${data.evaluation.employeeName.replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
 
@@ -1049,10 +1049,13 @@ ${bodyContent}
     pagebreak: { mode: ['css'] },
   };
 
-  await (html2pdf() as any)
-    .set(opt)
-    .from(iframeDoc.body)
-    .save();
-
-  document.body.removeChild(iframe);
+  try {
+    await (html2pdf() as any)
+      .set(opt)
+      .from(container)
+      .save();
+  } finally {
+    document.body.removeChild(container);
+    document.body.removeChild(overlay);
+  }
 }
