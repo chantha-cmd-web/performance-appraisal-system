@@ -1010,7 +1010,7 @@ export async function generatePdfReport(data: PdfReportData): Promise<void> {
 
   const container = document.createElement('div');
   container.id = 'pdf-export-container';
-  container.style.cssText = 'position:absolute;left:0;top:0;width:794px;background:white;overflow:visible;-webkit-print-color-adjust:exact;print-color-adjust:exact;';
+  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:white;overflow:visible;-webkit-print-color-adjust:exact;print-color-adjust:exact;';
 
   const styleEl = document.createElement('style');
   styleEl.textContent = getStyles();
@@ -1027,8 +1027,6 @@ export async function generatePdfReport(data: PdfReportData): Promise<void> {
 
   const filename = `Performance_Report_${data.evaluation.employeeName.replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
 
-  const containerHeight = container.scrollHeight;
-
   const opt = {
     margin: 0,
     filename,
@@ -1041,13 +1039,9 @@ export async function generatePdfReport(data: PdfReportData): Promise<void> {
       logging: false,
       width: 794,
       windowWidth: 794,
-      height: containerHeight,
-      windowHeight: containerHeight,
-      scrollX: 0,
-      scrollY: 0,
     },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
-    pagebreak: { mode: ['css'], avoid: ['img', 'svg'] },
+    pagebreak: { mode: ['css'] },
   };
 
   await (html2pdf() as any)
