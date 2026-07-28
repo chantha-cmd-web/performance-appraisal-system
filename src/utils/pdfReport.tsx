@@ -43,7 +43,7 @@ function recalcOverallScore(ev: Evaluation, positionFormConfig?: PositionFormCon
   return calculateOverallScore(ev.weightScheme, totals, 0, 0, sectionInfo);
 }
 
-function buildHtml(data: PdfReportData, pageNum: number): string {
+function buildBodyContent(data: PdfReportData, pageNum: number): string {
   const { evaluation: ev, positionFormConfig } = data;
   const now = format(new Date(), 'dd MMMM yyyy');
   const overallScore = recalcOverallScore(ev, positionFormConfig);
@@ -57,8 +57,6 @@ function buildHtml(data: PdfReportData, pageNum: number): string {
   const criteria = positionFormConfig?.criteria
     ?.filter(c => c.status === 'active')
     ?.sort((a, b) => a.displayOrder - b.displayOrder) || [];
-
-  const maxPossible = criteria.reduce((sum, c) => sum + (c.max || 10), 0);
 
   const sectionData = sections.map(sec => {
     const secCriteria = criteria.filter(c => c.sectionId === sec.id);
@@ -211,16 +209,7 @@ function buildHtml(data: PdfReportData, pageNum: number): string {
   const strengths = ev.criteriaScores?.filter(s => (s.superScore || 0) >= 8) || [];
   const developments = ev.criteriaScores?.filter(s => (s.superScore || 0) < 6) || [];
 
-  return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8"/>
-<style>
-  ${getStyles()}
-</style>
-</head>
-<body>
-
+  return `
 <!-- ═══════════════ COVER PAGE ═══════════════ -->
 <div class="page cover-page">
   <div class="cover-top-bar"></div>
@@ -557,9 +546,7 @@ function buildHtml(data: PdfReportData, pageNum: number): string {
     <span>Western International School — Annual Performance Management System</span>
     <span>Page {{PAGE_NUM}} | Confidential | ${now}</span>
   </div>
-</div>
-
-</body></html>`;
+</div>`;
 }
 
 function getStyles(): string {
@@ -1227,22 +1214,34 @@ function getStyles(): string {
 export async function generatePdfReport(data: PdfReportData): Promise<void> {
   const html2pdf = (await import('html2pdf.js')).default;
 
-  let fullHtml = buildHtml(data, 1);
+  let bodyContent = buildBodyContent(data, 1);
 
   let pageNum = 0;
-  fullHtml = fullHtml.replace(/\{\{PAGE_NUM\}\}/g, () => {
+  bodyContent = bodyContent.replace(/\{\{PAGE_NUM\}\}/g, () => {
     pageNum++;
     return String(pageNum);
   });
 
   const container = document.createElement('div');
-  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:white;z-index:-1;';
-  container.innerHTML = fullHtml;
+  container.id = 'pdf-export-container';
+  container.style.cssText = 'position:absolute;left:0;top:0;width:794px;background:white;overflow:visible;-webkit-print-color-adjust:exact;print-color-adjust:exact;';
+
+  const styleEl = document.createElement('style');
+  styleEl.textContent = getStyles();
+  container.appendChild(styleEl);
+
+  const contentWrap = document.createElement('div');
+  contentWrap.style.cssText = 'font-family:Inter,Noto Sans Khmer,system-ui,sans-serif;color:#1e293b;';
+  contentWrap.innerHTML = bodyContent;
+  container.appendChild(contentWrap);
+
   document.body.appendChild(container);
 
-  await new Promise(r => setTimeout(r, 1000));
+  await new Promise(r => setTimeout(r, 2000));
 
   const filename = `Performance_Report_${data.evaluation.employeeName.replace(/\s+/g, '_')}_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+
+  const containerHeight = container.scrollHeight;
 
   const opt = {
     margin: 0,
@@ -1256,9 +1255,13 @@ export async function generatePdfReport(data: PdfReportData): Promise<void> {
       logging: false,
       width: 794,
       windowWidth: 794,
+      height: containerHeight,
+      windowHeight: containerHeight,
+      scrollX: 0,
+      scrollY: 0,
     },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
-    pagebreak: { mode: ['css'] },
+    pagebreak: { mode: ['css'], avoid: ['img', 'svg'] },
   };
 
   await (html2pdf() as any)
