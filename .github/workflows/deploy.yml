@@ -38,6 +38,7 @@ jobs:
         run: npm run build
         env:
           VITE_API_URL: ${{ secrets.BACKEND_URL }}
+          VITE_BASE: /performance-appraisal-system/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

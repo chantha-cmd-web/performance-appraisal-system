@@ -4,6 +4,8 @@ import { connectRealtime, disconnectRealtime, subscribeRealtime, isRealtimeConne
 
 type EventHandler = (data: any) => void;
 
+const POLL_INTERVAL_MS = 30000;
+
 export function useRealtime() {
   const { token, user } = useAuth();
   const connectedRef = useRef(false);
@@ -48,13 +50,24 @@ export function useRealtimeRefresh(events: string[], refreshFn: () => void) {
   const { subscribe } = useRealtime();
   const refreshRef = useRef(refreshFn);
   refreshRef.current = refreshFn;
+  const eventsRef = useRef(events);
+  eventsRef.current = events;
 
   useEffect(() => {
-    const unsubs = events.map(event =>
+    const eventList = Array.from(new Set(['connected', ...(eventsRef.current || [])]));
+    const unsubs = eventList.map(event =>
       subscribe(event, () => {
         setTimeout(() => refreshRef.current(), 100);
       })
     );
-    return () => unsubs.forEach(unsub => unsub());
-  }, [events, subscribe]);
+    const interval = setInterval(() => {
+      if (!isRealtimeConnected()) {
+        refreshRef.current();
+      }
+    }, POLL_INTERVAL_MS);
+    return () => {
+      unsubs.forEach(unsub => unsub());
+      clearInterval(interval);
+    };
+  }, [subscribe]);
 }

@@ -667,18 +667,24 @@ async function checkServerAvailable(): Promise<boolean> {
   }
 }
 
+const IS_PROD = import.meta.env.PROD;
+
 export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
   const rawUrl = extractUrl(input);
 
   if (rawUrl.includes('/api/')) {
+    const fullUrl = apiUrl(rawUrl);
+
+    if (IS_PROD) {
+      return window.fetch(fullUrl, init);
+    }
+
     if (serverAvailable === null) {
       serverAvailable = await checkServerAvailable();
       if (!serverAvailable) {
         initMockDb();
       }
     }
-
-    const fullUrl = apiUrl(rawUrl);
 
     if (serverAvailable) {
       try {
@@ -719,20 +725,20 @@ let wsInstance: WebSocket | null = null;
 let eventHandlers: Map<string, Set<RealtimeEventHandler>> = new Map();
 let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 50;
+let manuallyClosed = false;
 
 function scheduleReconnect(token: string) {
-  if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-    const delay = Math.min(1000 * Math.pow(1.5, reconnectAttempts), 30000);
-    reconnectAttempts++;
-    reconnectTimeout = setTimeout(() => connectRealtime(token), delay);
-  }
+  if (manuallyClosed) return;
+  const delay = Math.min(1000 * Math.pow(1.5, reconnectAttempts), 30000);
+  reconnectAttempts++;
+  reconnectTimeout = setTimeout(() => connectRealtime(token), delay);
 }
 
 export function connectRealtime(token: string) {
   if (wsInstance && (wsInstance.readyState === WebSocket.OPEN || wsInstance.readyState === WebSocket.CONNECTING)) {
     return;
   }
+  manuallyClosed = false;
 
   const wsBase = wsUrl('/ws');
   const wsConnUrl = `${wsBase}?token=${token}`;
@@ -778,11 +784,12 @@ export function connectRealtime(token: string) {
 }
 
 export function disconnectRealtime() {
+  manuallyClosed = true;
   if (reconnectTimeout) {
     clearTimeout(reconnectTimeout);
     reconnectTimeout = null;
   }
-  reconnectAttempts = MAX_RECONNECT_ATTEMPTS;
+  reconnectAttempts = 0;
   if (wsInstance) {
     wsInstance.close();
     wsInstance = null;
