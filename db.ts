@@ -615,7 +615,7 @@ function executeMockQuery(sql: string, params: any[] = []): any[] {
       }
       return user ? [user] : [];
     }
-    if (lowerSql.includes('select "id", "name", "role"')) {
+    if (lowerSql.includes('select "id", "name", "role"') && !lowerSql.includes('"password"')) {
       return db.users.map(u => ({ id: u.id, name: u.name, role: u.role }));
     }
     return db.users;
