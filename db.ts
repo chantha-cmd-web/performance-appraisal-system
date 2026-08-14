@@ -253,7 +253,27 @@ export async function syncFromGoogleSheets() {
       const currentDb = readMockDb();
       const sheetDb = result.data;
       
-      // Helper to normalize keys of objects in the sheet response to lowercase and clean up fields
+      // Map lowercase sheet keys back to the camelCase keys the app expects
+      const CAMEL_KEYS: Record<string, string> = {
+        userid: 'userId', username: 'userName',
+        employeeid: 'employeeId', employeename: 'employeeName',
+        khmername: 'khmerName',
+        supervisorid: 'supervisorId', supporterid: 'supporterId',
+        evalmodel: 'evalModel', evalperiod: 'evalPeriod',
+        reviewdate: 'reviewDate', weightscheme: 'weightScheme',
+        evaluationtype: 'evaluationType',
+        totalself: 'totalSelf', totalsuper: 'totalSuper', overallscore: 'overallScore',
+        evaluatorcomments: 'evaluatorComments',
+        createdat: 'createdAt', createdbyname: 'createdByName',
+        criteriaid: 'criteriaId', evaluationid: 'evaluationId',
+        selfscore: 'selfScore', superscore: 'superScore',
+        supporterscore: 'supporterScore', managementscore: 'managementScore', aspscore: 'aspScore',
+        peername: 'peerName',
+        khmessage: 'khMessage',
+        timestamp: 'timestamp'
+      };
+
+      // Helper to normalize keys of objects in the sheet response to camelCase and clean up fields
       const normalizeSheetData = (tableData: any[]): any[] => {
         if (!Array.isArray(tableData)) return [];
         return tableData.map(item => {
@@ -261,6 +281,7 @@ export async function syncFromGoogleSheets() {
           const normalized: any = {};
           for (const key of Object.keys(item)) {
             const lowerKey = key.toLowerCase();
+            const camelKey = CAMEL_KEYS[lowerKey] || (lowerKey !== key ? key : lowerKey);
             let value = item[key];
             // Normalize ID fields to lowercase strings
             if ((lowerKey === 'id' || lowerKey === 'userid' || lowerKey === 'employeeid' || lowerKey === 'supervisorid' || lowerKey === 'supporterid') && value !== undefined && value !== null) {
@@ -270,7 +291,7 @@ export async function syncFromGoogleSheets() {
             if (lowerKey === 'password' && value !== undefined && value !== null) {
               value = String(value).trim();
             }
-            normalized[lowerKey] = value;
+            normalized[camelKey] = value;
           }
           return normalized;
         });
@@ -315,12 +336,12 @@ export async function syncFromGoogleSheets() {
         }
 
         // Ensure Direct Supervisor has a login
-        if (emp.supervisorid && String(emp.supervisorid).trim() !== '') {
-          const supId = String(emp.supervisorid).trim().toLowerCase();
+        if (emp.supervisorId && String(emp.supervisorId).trim() !== '') {
+          const supId = String(emp.supervisorId).trim().toLowerCase();
           if (!finalUsers.find(u => String(u.id || '').trim().toLowerCase() === supId)) {
             finalUsers.push({
-              id: String(emp.supervisorid).trim(),
-              name: `Supervisor ${String(emp.supervisorid).trim()}`,
+              id: String(emp.supervisorId).trim(),
+              name: `Supervisor ${String(emp.supervisorId).trim()}`,
               password: 'sup@2026',
               role: 'supervisor'
             });
@@ -328,12 +349,12 @@ export async function syncFromGoogleSheets() {
         }
 
         // Ensure Supporter has a login
-        if (emp.supporterid && String(emp.supporterid).trim() !== '') {
-          const helperId = String(emp.supporterid).trim().toLowerCase();
+        if (emp.supporterId && String(emp.supporterId).trim() !== '') {
+          const helperId = String(emp.supporterId).trim().toLowerCase();
           if (!finalUsers.find(u => String(u.id || '').trim().toLowerCase() === helperId)) {
             finalUsers.push({
-              id: String(emp.supporterid).trim(),
-              name: `Supporter ${String(emp.supporterid).trim()}`,
+              id: String(emp.supporterId).trim(),
+              name: `Supporter ${String(emp.supporterId).trim()}`,
               password: 'sup@2026',
               role: 'supporter'
             });
