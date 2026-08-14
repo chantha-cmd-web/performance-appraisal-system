@@ -782,7 +782,7 @@ async function startServer() {
   });
 
   if (process.env.GOOGLE_APPS_SCRIPT_URL) {
-    console.log('[Google Sheets] Automated background synchronization active. Polling spreadsheet every 60 seconds...');
+    console.log('[Google Sheets] Automated background synchronization active. Polling spreadsheet every 20 seconds...');
     setInterval(async () => {
       try {
         await syncFromGoogleSheets();
@@ -792,7 +792,7 @@ async function startServer() {
       } catch (err: any) {
         console.error('[Google Sheets] Automatic background sync error:', err.message);
       }
-    }, 60000);
+    }, 20000);
   }
 }
 

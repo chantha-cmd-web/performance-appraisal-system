@@ -4,7 +4,7 @@ import { connectRealtime, disconnectRealtime, subscribeRealtime, isRealtimeConne
 
 type EventHandler = (data: any) => void;
 
-const POLL_INTERVAL_MS = 30000;
+const POLL_INTERVAL_MS = 5000;
 
 export function useRealtime() {
   const { token, user } = useAuth();
