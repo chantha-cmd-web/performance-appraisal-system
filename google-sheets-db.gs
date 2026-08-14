@@ -187,35 +187,38 @@ function writeSheetData(sheetName, data, headers) {
     sheet = ss.insertSheet(sheetName);
   }
   
-  // Clear everything
-  sheet.clearContents();
+  var rows = [];
+  for (var i = 0; i < data.length; i++) {
+    var item = data[i];
+    var row = [];
+    for (var j = 0; j < headers.length; j++) {
+      var key = headers[j];
+      var val = item[key];
+      if (val === undefined || val === null) {
+        row.push("");
+      } else if (typeof val === "object") {
+        row.push(JSON.stringify(val));
+      } else {
+        row.push(val);
+      }
+    }
+    rows.push(row);
+  }
   
-  // Rewrite Header
-  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  // Clear the entire used area first. An EMPTY intermediate state is safe for
+  // concurrent readers: they see an empty table and keep their current data.
+  var usedRows = Math.max(sheet.getLastRow(), 1);
+  sheet.getRange(1, 1, usedRows, headers.length).clearContent();
+  
+  // Write headers and all data rows in a SINGLE atomic setValues call. The old
+  // approach (clear -> headers -> rows) left a window where a concurrent getData
+  // could observe a half-written table (empty headers or partial rows), which the
+  // server then treated as authoritative and propagated as corrupted data.
+  var fullMatrix = [headers].concat(rows);
+  sheet.getRange(1, 1, fullMatrix.length, headers.length).setValues(fullMatrix);
   sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
   sheet.getRange(1, 1, 1, headers.length).setBackground("#e2e8f0");
   sheet.setFrozenRows(1);
-  
-  if (data && data.length > 0) {
-    var rows = [];
-    for (var i = 0; i < data.length; i++) {
-      var item = data[i];
-      var row = [];
-      for (var j = 0; j < headers.length; j++) {
-        var key = headers[j];
-        var val = item[key];
-        if (val === undefined || val === null) {
-          row.push("");
-        } else if (typeof val === "object") {
-          row.push(JSON.stringify(val));
-        } else {
-          row.push(val);
-        }
-      }
-      rows.push(row);
-    }
-    sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
-  }
 }
 
 /**

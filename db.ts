@@ -230,6 +230,13 @@ export async function syncFromGoogleSheets() {
   }
   
   try {
+    // Avoid reading the sheet while a write is still in flight. A half-written
+    // table (e.g. headers cleared but rows not yet written) would be mistaken
+    // for real data and corrupt the in-memory DB. Wait for pending saves first.
+    if (pendingSheetSaves.length > 0) {
+      await flushGoogleSheets();
+    }
+
     console.log('[Google Sheets] Synchronizing database state from Google Sheet...');
     const response = await sheetFetch(APPS_SCRIPT_URL, {
       method: 'POST',
@@ -276,27 +283,34 @@ export async function syncFromGoogleSheets() {
       // Helper to normalize keys of objects in the sheet response to camelCase and clean up fields
       const normalizeSheetData = (tableData: any[]): any[] => {
         if (!Array.isArray(tableData)) return [];
-        return tableData.map(item => {
-          if (!item || typeof item !== 'object') return item;
-          const normalized: any = {};
-          for (const key of Object.keys(item)) {
-            const lowerKey = key.toLowerCase();
-            const camelKey = CAMEL_KEYS[lowerKey] || (lowerKey !== key ? key : lowerKey);
-            let value = item[key];
-            // Normalize ID fields to lowercase strings
-            if ((lowerKey === 'id' || lowerKey === 'userid' || lowerKey === 'employeeid' || lowerKey === 'supervisorid' || lowerKey === 'supporterid'
-              || lowerKey === 'appraiser' || lowerKey === 'supporter' || lowerKey === 'createdby' || lowerKey === 'evaluationid' || lowerKey === 'criteriaid')
-              && value !== undefined && value !== null) {
-              value = String(value).trim().toLowerCase();
+        return tableData
+          .map(item => {
+            if (!item || typeof item !== 'object') return null;
+            const normalized: any = {};
+            for (const key of Object.keys(item)) {
+              const lowerKey = key.toLowerCase();
+              const camelKey = CAMEL_KEYS[lowerKey] || (lowerKey !== key ? key : lowerKey);
+              let value = item[key];
+              // Normalize ID fields to lowercase strings
+              if ((lowerKey === 'id' || lowerKey === 'userid' || lowerKey === 'employeeid' || lowerKey === 'supervisorid' || lowerKey === 'supporterid'
+                || lowerKey === 'appraiser' || lowerKey === 'supporter' || lowerKey === 'createdby' || lowerKey === 'evaluationid' || lowerKey === 'criteriaid')
+                && value !== undefined && value !== null) {
+                value = String(value).trim().toLowerCase();
+              }
+              // Normalize password to a string to avoid numeric parsing issues from Google Sheets
+              if (lowerKey === 'password' && value !== undefined && value !== null) {
+                value = String(value).trim();
+              }
+              normalized[camelKey] = value;
             }
-            // Normalize password to a string to avoid numeric parsing issues from Google Sheets
-            if (lowerKey === 'password' && value !== undefined && value !== null) {
-              value = String(value).trim();
-            }
-            normalized[camelKey] = value;
-          }
-          return normalized;
-        });
+            // Drop rows with no usable content. These appear when the sheet is
+            // read mid-write (e.g. headers momentarily empty) and would otherwise
+            // overwrite good in-memory data with corrupt empty rows.
+            if (Object.keys(normalized).length === 0) return null;
+            const hasContent = Object.values(normalized).some(v => v !== '' && v !== null && v !== undefined);
+            return hasContent ? normalized : null;
+          })
+          .filter((row): row is any => row !== null);
       };
 
       const usersNormalized = normalizeSheetData(sheetDb.users || []);
