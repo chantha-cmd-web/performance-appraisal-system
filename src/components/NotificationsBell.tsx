@@ -17,16 +17,17 @@ export default function NotificationsBell() {
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const myNotifications = user ? notifications.filter(n => n.userId === user.id) : [];
+  const myNotifications = (user && Array.isArray(notifications)) ? notifications.filter(n => n.userId === user.id) : [];
   const unreadCount = myNotifications.filter(n => !n.read).length;
 
   const loadNotifications = useCallback(async () => {
     if (!token) return;
     const data = await fetchNotifications(token);
-    setNotifications(data);
+    const safeData = Array.isArray(data) ? data : [];
+    setNotifications(safeData);
 
     if (!hasShownToastRef.current && user) {
-      const myUnread = data.filter((n: AppNotification) => n.userId === user.id && !n.read);
+      const myUnread = safeData.filter((n: AppNotification) => n.userId === user.id && !n.read);
       if (myUnread.length > 0) {
         myUnread.slice(0, 3).forEach((n: AppNotification) => {
           if (n.type === 'warning') toast.error(n.message, { icon: '⚠️', duration: 5000 });

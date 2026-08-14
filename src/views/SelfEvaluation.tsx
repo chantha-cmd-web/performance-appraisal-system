@@ -28,7 +28,7 @@ export default function SelfEvaluation() {
       });
       if (res.ok) {
         const data = await res.json();
-        const mine = data.filter((ev: any) => ev.employeeId === user?.id);
+        const mine = Array.isArray(data) ? data.filter((ev: any) => ev.employeeId === user?.id) : [];
         setMyEvaluations(mine);
       }
     } catch (err) {
@@ -92,8 +92,8 @@ export default function SelfEvaluation() {
         empData = await empRes.json();
       }
 
-      const evalType = 'management';
-      const weightScheme = config.weightingScheme || empData?.evalModel || '';
+      const evalType = empData?.category || 'management';
+      const weightScheme = empData?.evalModel || config.weightingScheme || 'campus_60_40';
 
       const posActiveCriteria = config.criteria.filter(c => c.status === 'active');
 
@@ -149,11 +149,12 @@ export default function SelfEvaluation() {
         });
         navigate(`/evaluation?id=${newId}`);
       } else {
-        alert('Failed to create evaluation. Please try again.');
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error ? `Failed to create evaluation: ${errData.error}` : 'Failed to create evaluation. Please try again.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Error creating evaluation.');
+      alert(err.message ? `Error creating evaluation: ${err.message}` : 'Error creating evaluation.');
     } finally {
       setCreating(null);
     }

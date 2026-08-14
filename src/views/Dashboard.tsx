@@ -24,6 +24,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { generatePdfReport } from '../utils/pdfReport';
 import toast from 'react-hot-toast';
 import { useRealtimeRefresh } from '../hooks/useRealtime';
+import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 
 type SortKey = 'employeeName' | 'employeeId' | 'campus' | 'position' | 'totalSelf' | 'totalSuper' | 'overallScore' | 'status' | 'createdByName' | 'reviewDate';
 type SortDir = 'asc' | 'desc';
@@ -84,16 +85,49 @@ export default function Dashboard() {
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const [refreshing, setRefreshing] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [evalToDelete, setEvalToDelete] = useState<Evaluation | null>(null);
+  const [isDeletingReport, setIsDeletingReport] = useState(false);
+
+  const handleDeleteConfirm = async () => {
+    if (!evalToDelete) return;
+    setIsDeletingReport(true);
+    try {
+      const res = await apiFetch(`/api/evaluations/${evalToDelete.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        toast.success('Appraisal report deleted successfully');
+        fetchEvals();
+        setDeleteModalOpen(false);
+        setEvalToDelete(null);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        toast.error(`Failed to delete appraisal: ${errData.error || 'Unknown error'}`);
+      }
+    } catch {
+      toast.error('Error deleting appraisal');
+    } finally {
+      setIsDeletingReport(false);
+    }
+  };
 
   const fetchEvals = async () => {
     try {
       const res = await apiFetch('/api/evaluations', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const data = await res.json();
-      setEvals(filterEvaluationsByRole(data, user));
+      const data = res.ok ? await res.json() : [];
+      if (Array.isArray(data)) {
+        setEvals(filterEvaluationsByRole(data, user));
+      } else {
+        console.error('Expected array of evaluations, but got:', data);
+        setEvals([]);
+      }
     } catch (err) {
       console.error(err);
+      setEvals([]);
     } finally {
       setLoading(false);
     }
@@ -112,13 +146,17 @@ export default function Dashboard() {
   const filteredEvals = useMemo(() => {
     return evals.filter(e => {
       const q = searchQuery.toLowerCase();
+      const nameStr = String(e.employeeName || '').toLowerCase();
+      const idStr = String(e.employeeId || '').toLowerCase();
+      const posStr = String(e.position || '').toLowerCase();
+      const campusStr = String(e.campus || '').toLowerCase();
       const matchesSearch = !q ||
-        e.employeeName.toLowerCase().includes(q) ||
-        e.employeeId.toLowerCase().includes(q) ||
-        (e.position && e.position.toLowerCase().includes(q)) ||
-        (e.campus && e.campus.toLowerCase().includes(q));
+        nameStr.includes(q) ||
+        idStr.includes(q) ||
+        posStr.includes(q) ||
+        campusStr.includes(q);
       const matchesCampus = filterCampus ? e.campus === filterCampus : true;
-      const matchesPeriod = filterPeriod ? e.reviewDate.startsWith(filterPeriod) : true;
+      const matchesPeriod = filterPeriod ? (e.reviewDate && typeof e.reviewDate === 'string' && e.reviewDate.startsWith(filterPeriod)) : true;
       return matchesSearch && matchesCampus && matchesPeriod;
     });
   }, [evals, searchQuery, filterCampus, filterPeriod]);
@@ -141,7 +179,7 @@ export default function Dashboard() {
   const paginatedEvals = sortedEvals.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const campuses = useMemo(() => Array.from(new Set(evals.map(e => e.campus))), [evals]);
-  const periods = useMemo(() => Array.from(new Set(evals.map(e => e.reviewDate.substring(0, 7)))), [evals]);
+  const periods = useMemo(() => Array.from(new Set(evals.map(e => e.reviewDate && typeof e.reviewDate === 'string' ? e.reviewDate.substring(0, 7) : ''))).filter(Boolean), [evals]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -171,9 +209,9 @@ export default function Dashboard() {
         'Position': e.position,
         'Type': e.weightScheme,
         'Date': e.reviewDate,
-        'Self Score': e.totalSelf,
-        'Supervisor Score': e.totalSuper,
-        'Overall Score': e.overallScore.toFixed(1),
+        'Self Score': e.totalSelf || 0,
+        'Supervisor Score': e.totalSuper || 0,
+        'Overall Score': typeof e.overallScore === 'number' ? e.overallScore.toFixed(1) : '0.0',
         'Rating': `${rating.khLabel} (${rating.label})`,
         'Status': statusLabel,
         'Evaluator': e.createdByName,
@@ -274,9 +312,9 @@ export default function Dashboard() {
     input.click();
   };
 
-  const avgScore = evals.length ? (evals.reduce((s, e) => s + e.overallScore, 0) / evals.length) : 0;
-  const topScore = evals.length ? Math.max(...evals.map(e => e.overallScore)) : 0;
-  const needsImprovement = evals.filter(e => e.overallScore < 70).length;
+  const avgScore = evals.length ? (evals.reduce((s, e) => s + (e.overallScore || 0), 0) / evals.length) : 0;
+  const topScore = evals.length ? Math.max(...evals.map(e => e.overallScore || 0)) : 0;
+  const needsImprovement = evals.filter(e => (e.overallScore || 0) < 70).length;
   const completedCount = evals.filter(e => e.status === 'Completed' || e.status === 'Approved').length;
 
   const hasActiveFilters = searchQuery || filterCampus || filterPeriod;
@@ -488,11 +526,11 @@ export default function Dashboard() {
                 </div>
 
                 {/* Filter Dropdowns */}
-                <div className="flex items-center gap-2">
-                  <div className="relative">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="relative flex-1 sm:flex-initial">
                     <Filter size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     <select
-                      className="pl-9 pr-8 py-3 glass-input rounded-2xl text-sm font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 appearance-none cursor-pointer min-w-[140px]"
+                      className="w-full pl-9 pr-8 py-3 glass-input rounded-2xl text-sm font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 appearance-none cursor-pointer sm:min-w-[140px]"
                       value={filterCampus}
                       onChange={(e) => { setFilterCampus(e.target.value); setCurrentPage(1); }}
                     >
@@ -501,7 +539,7 @@ export default function Dashboard() {
                     </select>
                   </div>
                   <select
-                    className="px-4 py-3 glass-input rounded-2xl text-sm font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 appearance-none cursor-pointer min-w-[130px]"
+                    className="flex-1 sm:flex-initial px-4 py-3 glass-input rounded-2xl text-sm font-medium text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 appearance-none cursor-pointer sm:min-w-[130px]"
                     value={filterPeriod}
                     onChange={(e) => { setFilterPeriod(e.target.value); setCurrentPage(1); }}
                   >
@@ -611,7 +649,7 @@ export default function Dashboard() {
                             </td>
                             <td className="px-5 py-4 text-right">
                               <div className="inline-flex items-center justify-center px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500/10 to-purple-500/10 dark:from-indigo-400/15 dark:to-purple-400/15 border border-indigo-200/50 dark:border-indigo-400/20">
-                                <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">{ev.overallScore.toFixed(1)}</span>
+                                <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">{typeof ev.overallScore === 'number' ? ev.overallScore.toFixed(1) : '0.0'}</span>
                               </div>
                             </td>
                             <td className="px-5 py-4 text-center">
@@ -675,16 +713,9 @@ export default function Dashboard() {
                                 )}
                                 {canDeleteEvaluation(ev, user) && (
                                   <button
-                                    onClick={async () => {
-                                      if (window.confirm("Are you sure you want to delete this appraisal?")) {
-                                        try {
-                                          const res = await apiFetch(`/api/evaluations/${ev.id}`, {
-                                            method: 'DELETE',
-                                            headers: { Authorization: `Bearer ${token}` }
-                                          });
-                                          if (res.ok) fetchEvals();
-                                        } catch { alert('Error deleting appraisal'); }
-                                      }
+                                    onClick={() => {
+                                      setEvalToDelete(ev);
+                                      setDeleteModalOpen(true);
                                     }}
                                     className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"
                                     title="Delete"
@@ -768,6 +799,19 @@ export default function Dashboard() {
           <AnalyticsDashboard evals={evals} />
         </motion.div>
       )}
+
+      <ConfirmDeleteModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          if (!isDeletingReport) {
+            setDeleteModalOpen(false);
+            setEvalToDelete(null);
+          }
+        }}
+        onConfirm={handleDeleteConfirm}
+        employeeName={evalToDelete?.employeeName || ''}
+        isDeleting={isDeletingReport}
+      />
     </div>
   );
 }
@@ -821,17 +865,18 @@ function StatCard({ title, subtitle, value, icon, color, description, decimals =
   );
 }
 
-function ScoreBadge({ score }: { score: number }) {
+function ScoreBadge({ score }: { score: number | null | undefined }) {
+  const s = typeof score === 'number' ? score : 0;
   let color = 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300';
-  if (score >= 90) color = 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400';
-  else if (score >= 80) color = 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400';
-  else if (score >= 70) color = 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400';
-  else if (score >= 60) color = 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400';
+  if (s >= 90) color = 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400';
+  else if (s >= 80) color = 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400';
+  else if (s >= 70) color = 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400';
+  else if (s >= 60) color = 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400';
   else color = 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400';
 
   return (
     <span className={cn("inline-flex items-center justify-center px-2.5 py-1 rounded-lg text-xs font-bold tabular-nums min-w-[48px]", color)}>
-      {score.toFixed(1)}
+      {s.toFixed(1)}
     </span>
   );
 }
@@ -901,7 +946,7 @@ function AnalyticsDashboard({ evals }: { evals: Evaluation[] }) {
 
   const campusScores = evals.reduce((acc, curr) => {
     if (!acc[curr.campus]) acc[curr.campus] = { name: curr.campus, totalScore: 0, count: 0 };
-    acc[curr.campus].totalScore += curr.overallScore;
+    acc[curr.campus].totalScore += (curr.overallScore || 0);
     acc[curr.campus].count += 1;
     return acc;
   }, {} as Record<string, { name: string; totalScore: number; count: number }>);
@@ -911,7 +956,7 @@ function AnalyticsDashboard({ evals }: { evals: Evaluation[] }) {
   }));
 
   const ratingCounts = evals.reduce((acc, curr) => {
-    const r = getRating(curr.overallScore).label;
+    const r = getRating(curr.overallScore || 0).label;
     acc[r] = (acc[r] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
@@ -919,8 +964,8 @@ function AnalyticsDashboard({ evals }: { evals: Evaluation[] }) {
   const COLORS = ['#10b981', '#3b82f6', '#6366f1', '#f59e0b', '#ef4444'];
   const ratingData = Object.keys(ratingCounts).map(key => ({ name: key, value: ratingCounts[key] }));
 
-  const topPerformers = [...evals].sort((a, b) => b.overallScore - a.overallScore).slice(0, 5).map(e => ({
-    name: e.employeeName, score: Number(e.overallScore.toFixed(1))
+  const topPerformers = [...evals].sort((a, b) => (b.overallScore || 0) - (a.overallScore || 0)).slice(0, 5).map(e => ({
+    name: e.employeeName, score: Number(Number(e.overallScore || 0).toFixed(1))
   }));
 
   return (

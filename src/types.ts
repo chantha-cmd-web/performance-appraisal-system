@@ -66,6 +66,7 @@ export interface Employee {
 export const STATUS_LABELS: Record<string, { label: string, kh: string, color: string }> = {
   'Draft': { label: 'Draft', kh: 'ព្រាង', color: 'bg-slate-100 text-slate-700' },
   'Self Evaluation Pending': { label: 'Self Eval Pending', kh: 'រង់ចាំការវាយតម្លៃខ្លួនឯង', color: 'bg-blue-100 text-blue-700' },
+  'Waiting for Reviews': { label: 'Waiting for Reviews', kh: 'រង់ចាំការវាយតម្លៃ', color: 'bg-indigo-100 text-indigo-700' },
   'Waiting for Supervisor': { label: 'Waiting Supervisor', kh: 'រង់ចាំអ្នកវាយតម្លៃ', color: 'bg-indigo-100 text-indigo-700' },
   'Supervisor Completed': { label: 'Supervisor Completed', kh: 'វាយតម្លៃរួចរាល់', color: 'bg-purple-100 text-purple-700' },
   'Waiting for Supporter': { label: 'Waiting Supporter', kh: 'រង់ចាំអ្នកគាំទ្រ', color: 'bg-amber-100 text-amber-700' },
@@ -91,7 +92,9 @@ export const WEIGHTING_SCHEMES = [
   { id: 'campus_60_40', label: 'Direct Supervisor 60% (campus) / Supporter 40% (central)' },
   { id: 'campus_50_50', label: 'Direct Supervisor 50% (campus) / Supporter 50% (central)' },
   { id: 'campus_100', label: 'Direct Supervisor (campus) 100%' },
-  { id: 'central_100', label: 'Direct Supervisor 100% (central)' }
+  { id: 'central_100', label: 'Direct Supervisor 100% (central)' },
+  { id: 'management_100', label: 'Management 100%' },
+  { id: 'asp_100', label: 'ASP 100%' }
 ];
 
 export const PREDEFINED_POSITIONS = [

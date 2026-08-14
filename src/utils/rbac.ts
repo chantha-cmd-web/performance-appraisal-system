@@ -19,127 +19,176 @@ export const isEmployee = (user: User | null): boolean =>
 
 // Route access
 export const canAccessAdminPage = (user: User | null): boolean =>
-  isSuperAdmin(user);
+  isAdmin(user);
 
 // Data export / import / admin functions
 export const canExportData = (user: User | null): boolean =>
-  isSuperAdmin(user);
+  isAdmin(user);
 
 export const canManageUsers = (user: User | null): boolean =>
-  isSuperAdmin(user);
+  isAdmin(user);
 
 // Can view all reports (vs only own)
 export const canViewAllReports = (user: User | null): boolean =>
-  isSuperAdmin(user);
+  isAdmin(user);
 
 // Dashboard: which evaluations can this user see?
 export function filterEvaluationsByRole(evals: Evaluation[], user: User | null): Evaluation[] {
+  if (!Array.isArray(evals)) return [];
   if (!user) return [];
-  if (isSuperAdmin(user)) return evals;
+  if (isAdmin(user)) return evals;
 
   return evals.filter(ev => {
-    if (user.role === 'admin') return ev.appraiser === user.id || ev.supporter === user.id;
-    if (user.role === 'supervisor') return ev.appraiser === user.id;
-    if (user.role === 'supporter') return ev.supporter === user.id;
-    if (user.role === 'employee') return ev.employeeId === user.id;
+    const appraiser = String(ev.appraiser || '').trim().toLowerCase();
+    const supporter = String(ev.supporter || '').trim().toLowerCase();
+    const employeeId = String(ev.employeeId || '').trim().toLowerCase();
+    const employeeName = String(ev.employeeName || '').trim().toLowerCase();
+    const createdBy = String(ev.createdBy || '').trim().toLowerCase();
+
+    const userId = String(user.id || '').trim().toLowerCase();
+    const userName = String(user.name || '').trim().toLowerCase();
+
+    const isAppraiser = appraiser === userId || appraiser === userName;
+    const isSupporter = supporter === userId || supporter === userName;
+    const isEmployee = employeeId === userId || employeeName === userName || employeeName.includes(userName);
+    const isCreator = createdBy === userId || createdBy === userName;
+
+    if (user.role === 'supervisor') return isAppraiser || isCreator;
+    if (user.role === 'supporter') return isSupporter || isCreator;
+    if (user.role === 'employee') return isEmployee;
     return false;
   });
 }
 
 // Dashboard: can this user see the evaluator column?
 export const canSeeEvaluatorColumn = (user: User | null): boolean =>
-  isSuperAdmin(user);
+  isAdmin(user);
 
 // Dashboard action buttons
 export function canEditEvaluation(ev: Evaluation, user: User | null): boolean {
   if (!user) return false;
-  if (isSuperAdmin(user)) return true;
+  if (isAdmin(user)) return true;
   const status = ev.status || 'Draft';
-  if (ev.createdBy === user.id && status === 'Draft') return true;
-  if (ev.employeeId === user.id && (status === 'Draft' || status === 'Self Evaluation Pending' || status === 'Returned to Employee')) return true;
-  if (ev.appraiser === user.id && status === 'Waiting for Supervisor') return true;
-  if (ev.supporter === user.id && status === 'Waiting for Supporter') return true;
+  const createdBy = String(ev.createdBy || '').trim().toLowerCase();
+  const employeeId = String(ev.employeeId || '').trim().toLowerCase();
+  const employeeName = String(ev.employeeName || '').trim().toLowerCase();
+  const appraiser = String(ev.appraiser || '').trim().toLowerCase();
+  const supporter = String(ev.supporter || '').trim().toLowerCase();
+
+  const userId = String(user.id || '').trim().toLowerCase();
+  const userName = String(user.name || '').trim().toLowerCase();
+
+  const isCreator = createdBy === userId || createdBy === userName;
+  const isEmployee = employeeId === userId || employeeName === userName || employeeName.includes(userName);
+  const isAppraiser = appraiser === userId || appraiser === userName;
+  const isSupporter = supporter === userId || supporter === userName;
+
+  if (isCreator && status === 'Draft') return true;
+  if (isEmployee && (status === 'Draft' || status === 'Self Evaluation Pending' || status === 'Returned to Employee')) return true;
+  if (isAppraiser && (status === 'Waiting for Supervisor' || status === 'Waiting for Reviews')) return true;
+  if (isSupporter && (status === 'Waiting for Supporter' || status === 'Waiting for Reviews')) return true;
   return false;
 }
 
 export function canDeleteEvaluation(ev: Evaluation, user: User | null): boolean {
   if (!user) return false;
-  return isSuperAdmin(user) || ev.createdBy === user.id;
+  const createdBy = String(ev.createdBy || '').trim().toLowerCase();
+  const userId = String(user.id || '').trim().toLowerCase();
+  return isAdmin(user) || createdBy === userId;
 }
 
 export function canEvaluate(ev: Evaluation, user: User | null): boolean {
   if (!user) return false;
   const status = ev.status || 'Draft';
-  if (ev.appraiser === user.id && status === 'Waiting for Supervisor') return true;
-  if (ev.supporter === user.id && status === 'Waiting for Supporter') return true;
+  const appraiser = String(ev.appraiser || '').trim().toLowerCase();
+  const supporter = String(ev.supporter || '').trim().toLowerCase();
+  const employeeId = String(ev.employeeId || '').trim().toLowerCase();
+  const employeeName = String(ev.employeeName || '').trim().toLowerCase();
+
+  const userId = String(user.id || '').trim().toLowerCase();
+  const userName = String(user.name || '').trim().toLowerCase();
+
+  const isAppraiser = appraiser === userId || appraiser === userName;
+  const isSupporter = supporter === userId || supporter === userName;
+  const isEmployee = employeeId === userId || employeeName === userName || employeeName.includes(userName);
+
+  if (isEmployee && (status === 'Draft' || status === 'Self Evaluation Pending' || status === 'Returned to Employee')) return true;
+  if (isAppraiser && (status === 'Waiting for Supervisor' || status === 'Waiting for Reviews')) return true;
+  if (isSupporter && (status === 'Waiting for Supporter' || status === 'Waiting for Reviews')) return true;
   return false;
 }
 
 // ─── EvaluationForm Section Editing Permissions ───
-// Superadmin can edit ALL sections. Employee can edit self-eval only during Draft/Self Eval Pending.
-// Supervisor can edit supervisor section only during "Waiting for Supervisor".
-// Supporter can edit supporter section only during "Waiting for Supporter".
+// Superadmin/Admin can edit ALL sections. Employee can edit self-eval only during Draft/Self Eval Pending.
+// Supervisor can edit supervisor section only during "Waiting for Supervisor" or "Waiting for Reviews".
+// Supporter can edit supporter section only during "Waiting for Supporter" or "Waiting for Reviews".
 export function canEditSelfEval(
   user: User | null,
   evalData: { employeeId: string; status: string },
   isViewOnly: boolean
 ): boolean {
   if (isViewOnly) return false;
-  // Superadmin has full access to everything
-  if (isSuperAdmin(user)) return true;
+  // Admin has full access to everything
+  if (isAdmin(user)) return true;
   // Self-eval is only editable by the employee themselves, during Draft, Self Eval Pending, or Returned
-  if (user?.id === evalData.employeeId && (evalData.status === 'Draft' || evalData.status === 'Self Evaluation Pending' || evalData.status === 'Returned to Employee')) return true;
+  const employeeId = String(evalData.employeeId || '').trim().toLowerCase();
+  const userId = String(user?.id || '').trim().toLowerCase();
+  if (userId === employeeId && (evalData.status === 'Draft' || evalData.status === 'Self Evaluation Pending' || evalData.status === 'Returned to Employee')) return true;
   return false;
 }
 
-// Supervisor section: superadmin can always edit; assigned appraiser can edit during "Waiting for Supervisor"
+// Supervisor section: admin can always edit; assigned appraiser can edit during "Waiting for Supervisor" or "Waiting for Reviews"
 export function canEditSupervisorSection(
   user: User | null,
   evalData: { appraiser: string; status: string },
   isViewOnly: boolean
 ): boolean {
   if (isViewOnly) return false;
-  // Superadmin has full access
-  if (isSuperAdmin(user)) return true;
-  if (evalData.appraiser === user?.id && evalData.status === 'Waiting for Supervisor') return true;
+  // Admin has full access
+  if (isAdmin(user)) return true;
+  const appraiserId = String(evalData.appraiser || '').trim().toLowerCase();
+  const userId = String(user?.id || '').trim().toLowerCase();
+  if (appraiserId === userId && (evalData.status === 'Waiting for Supervisor' || evalData.status === 'Waiting for Reviews')) return true;
   return false;
 }
 
-// Supporter section: superadmin can always edit; assigned supporter can edit during "Waiting for Supporter"
+// Supporter section: admin can always edit; assigned supporter can edit during "Waiting for Supporter" or "Waiting for Reviews"
 export function canEditSupporterSection(
   user: User | null,
   evalData: { supporter: string; status: string },
   isViewOnly: boolean
 ): boolean {
   if (isViewOnly) return false;
-  // Superadmin has full access
-  if (isSuperAdmin(user)) return true;
-  if (evalData.supporter === user?.id && evalData.status === 'Waiting for Supporter') return true;
+  // Admin has full access
+  if (isAdmin(user)) return true;
+  const supporterId = String(evalData.supporter || '').trim().toLowerCase();
+  const userId = String(user?.id || '').trim().toLowerCase();
+  if (supporterId === userId && (evalData.status === 'Waiting for Supporter' || evalData.status === 'Waiting for Reviews')) return true;
   return false;
 }
 
-// Management section: only superadmin can edit (management_100 scheme)
+// Management section: only admin can edit (management_100 scheme)
 export function canEditManagementSection(
   user: User | null,
   isViewOnly: boolean
 ): boolean {
   if (isViewOnly) return false;
-  return isSuperAdmin(user);
+  return isAdmin(user);
 }
 
-// ASP section: only superadmin can edit (asp_100 scheme)
+// ASP section: only admin can edit (asp_100 scheme)
 export function canEditAspSection(
   user: User | null,
   isViewOnly: boolean
 ): boolean {
   if (isViewOnly) return false;
-  return isSuperAdmin(user);
+  return isAdmin(user);
 }
 
 // Can this user create a new evaluation?
 export function canCreateEvaluation(user: User | null): boolean {
   if (!user) return false;
-  if (isSuperAdmin(user)) return true;
+  if (isAdmin(user)) return true;
   if (user.role === 'employee') return true;
   return false;
 }
@@ -279,7 +328,8 @@ export function calculateOverallScore(
 export function getNextStatus(
   currentStatus: string,
   action: 'save' | 'submit' | 'reject' | 'reopen',
-  showSupporter: boolean
+  showSupporter: boolean,
+  userRole?: string
 ): string {
   if (action === 'save') return currentStatus;
   if (action === 'reject') return 'Returned to Employee';
@@ -289,9 +339,15 @@ export function getNextStatus(
     case 'Draft':
     case 'Self Evaluation Pending':
     case 'Returned to Employee':
-      return 'Waiting for Supervisor';
+      return showSupporter ? 'Waiting for Reviews' : 'Waiting for Supervisor';
+    case 'Waiting for Reviews':
+      if (userRole === 'superadmin') return 'Completed';
+      if (userRole === 'supporter') {
+        return 'Waiting for Supervisor';
+      }
+      return 'Waiting for Supporter';
     case 'Waiting for Supervisor':
-      return showSupporter ? 'Waiting for Supporter' : 'Completed';
+      return 'Completed';
     case 'Waiting for Supporter':
       return 'Completed';
     default:
@@ -318,8 +374,13 @@ export function canRejectEvaluation(
   // Superadmin can always reject/return regardless of status
   if (isSuperAdmin(user)) return true;
   if (evalData.status === 'Completed' || evalData.status === 'Approved') return false;
-  if (evalData.appraiser === user.id && evalData.status === 'Waiting for Supervisor') return true;
-  if (evalData.supporter === user.id && evalData.status === 'Waiting for Supporter') return true;
+  
+  const appraiserId = String(evalData.appraiser || '').trim().toLowerCase();
+  const supporterId = String(evalData.supporter || '').trim().toLowerCase();
+  const userId = String(user.id || '').trim().toLowerCase();
+
+  if (appraiserId === userId && evalData.status === 'Waiting for Supervisor') return true;
+  if (supporterId === userId && evalData.status === 'Waiting for Supporter') return true;
   return false;
 }
 
@@ -329,6 +390,7 @@ export function getWorkflowStage(status: string): string {
     case 'Draft': return 'Self-Evaluation';
     case 'Self Evaluation Pending': return 'Self-Evaluation';
     case 'Returned to Employee': return 'Returned for Revision';
+    case 'Waiting for Reviews': return 'Pending Reviews';
     case 'Waiting for Supervisor': return 'Supervisor Review';
     case 'Supervisor Completed': return 'Supervisor Review';
     case 'Waiting for Supporter': return 'Supporter Review';
@@ -354,13 +416,18 @@ export function isStageLocked(
   // Superadmin has full access to all stages
   if (isSuperAdmin(user)) return false;
 
+  const employeeId = String(evalData.employeeId || '').trim().toLowerCase();
+  const appraiserId = String(evalData.appraiser || '').trim().toLowerCase();
+  const supporterId = String(evalData.supporter || '').trim().toLowerCase();
+  const userId = String(user?.id || '').trim().toLowerCase();
+
   switch (stage) {
     case 'self':
       return status !== 'Draft' && status !== 'Self Evaluation Pending' && status !== 'Returned to Employee';
     case 'supervisor':
-      return !(status === 'Waiting for Supervisor' && user?.id === evalData.appraiser);
+      return !((status === 'Waiting for Supervisor' || status === 'Waiting for Reviews') && userId === appraiserId);
     case 'supporter':
-      return !(status === 'Waiting for Supporter' && user?.id === evalData.supporter);
+      return !((status === 'Waiting for Supporter' || status === 'Waiting for Reviews') && userId === supporterId);
     case 'management':
     case 'asp':
       return status === 'Completed' || status === 'Approved' || !isSuperAdmin(user);

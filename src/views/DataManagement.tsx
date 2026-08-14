@@ -1,13 +1,13 @@
 import { apiFetch } from '../mockApi';
 import React, { useState, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Database, Download, Upload, RotateCcw, AlertTriangle, FileJson, FileSpreadsheet, FileText, CheckCircle2 } from 'lucide-react';
+import { Database, Download, Upload, RotateCcw, AlertTriangle, FileJson, FileSpreadsheet, FileText, CheckCircle2, RefreshCw } from 'lucide-react';
 import { useRealtimeRefresh } from '../hooks/useRealtime';
 import * as xlsx from 'xlsx';
 
 export default function DataManagement() {
   const { token, user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'backup' | 'restore' | 'reset'>('backup');
+  const [activeTab, setActiveTab] = useState<'backup' | 'restore' | 'reset' | 'googlesheets'>('googlesheets');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
 
@@ -29,6 +29,32 @@ export default function DataManagement() {
       </div>
     );
   }
+
+  const handleSheetsSync = async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch('/api/data/sync-sheets', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        }
+      });
+      if (res.ok) {
+        const result = await res.json();
+        showMessage(result.message || 'Successfully synchronized database with Google Sheets!', 'success');
+        // Wait a second then reload window to show fresh state
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        const err = await res.json();
+        showMessage(err.error || 'Failed to synchronize with Google Sheets', 'error');
+      }
+    } catch (err: any) {
+      showMessage(err.message || 'An error occurred during synchronization', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleBackup = async (format: 'json' | 'excel') => {
     setLoading(true);
@@ -118,6 +144,13 @@ export default function DataManagement() {
 
       <div className="flex gap-4 border-b border-slate-200 dark:border-slate-700 pb-4">
         <button 
+          onClick={() => setActiveTab('googlesheets')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-colors ${activeTab === 'googlesheets' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+        >
+          <Database size={18} />
+          Google Sheet Sync
+        </button>
+        <button 
           onClick={() => setActiveTab('backup')}
           className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-colors ${activeTab === 'backup' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
         >
@@ -139,6 +172,38 @@ export default function DataManagement() {
           Reset System
         </button>
       </div>
+
+      {activeTab === 'googlesheets' && (
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-8 shadow-sm">
+          <div className="max-w-2xl mx-auto text-center py-6">
+            <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Database size={32} />
+            </div>
+            <h3 className="text-xl font-extrabold text-slate-800 dark:text-slate-100 mb-2">Google Sheets Database Synchronization</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mb-8 leading-relaxed">
+              Your system is currently connected to a live Google Sheet. Adding records, modifying users, or completing appraisals directly in your Google Sheet can be immediately pulled into this application here.
+            </p>
+            
+            <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl mb-8 text-left">
+              <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200 mb-2">💡 Tips for Direct Sheet Edits:</h4>
+              <ul className="list-disc pl-5 space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
+                <li>Make sure to preserve columns and headers as defined in your Apps Script schema.</li>
+                <li>When adding new records (like <strong>Users</strong> or <strong>Employees</strong>), ensure the ID values are unique.</li>
+                <li>The system automatically does background syncs every 60 seconds, but you can force an instant database refresh below.</li>
+              </ul>
+            </div>
+
+            <button 
+              onClick={handleSheetsSync}
+              disabled={loading}
+              className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold rounded-xl shadow-lg hover:shadow-indigo-500/25 transition-all flex items-center gap-2.5 mx-auto"
+            >
+              <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+              {loading ? 'Synchronizing State...' : 'Pull Latest from Google Sheet'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {activeTab === 'backup' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

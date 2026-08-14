@@ -1,20 +1,22 @@
 services:
   - type: web
-    name: performance-appraisal-system
+    name: performance-appraisal-system-api
     runtime: node
     plan: free
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci && npm run build:server
     startCommand: node dist/server.cjs
-    healthCheckPath: /api/auth/me
+    healthCheckPath: /api/health
     autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DATABASE_URL
-        sync: false
-      - key: JWT_SECRET
-        generateValue: true
       - key: PORT
         value: 10000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GOOGLE_APPS_SCRIPT_URL
+        sync: false
+      - key: GOOGLE_APPS_SCRIPT_SECRET
+        sync: false
       - key: CORS_ORIGINS
         sync: false

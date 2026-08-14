@@ -2,7 +2,7 @@ import { apiFetch } from '../mockApi';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Search, Plus, Upload, Download, Trash2, Edit2, CheckCircle2, AlertCircle, ShieldAlert, X, AlertTriangle, Info } from 'lucide-react';
-import { Employee } from '../types';
+import { Employee, WEIGHTING_SCHEMES } from '../types';
 import toast from 'react-hot-toast';
 import { useRealtimeRefresh } from '../hooks/useRealtime';
 import * as XLSX from 'xlsx';
@@ -59,7 +59,8 @@ export default function EmployeeProfiles() {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
-        setEmployees(await res.json());
+        const data = await res.json();
+        setEmployees(Array.isArray(data) ? data : []);
       }
     } catch (err) {
       toast.error('Failed to load employees');
@@ -137,10 +138,11 @@ export default function EmployeeProfiles() {
         setShowModal(false);
         fetchEmployees();
       } else {
-        toast.error('Failed to save employee');
+        const errData = await res.json().catch(() => ({}));
+        toast.error(errData.error ? `Failed to save: ${errData.error}` : 'Failed to save employee');
       }
-    } catch (err) {
-      toast.error('Failed to save employee');
+    } catch (err: any) {
+      toast.error(err.message ? `Failed to save: ${err.message}` : 'Failed to save employee');
     }
   };
 
@@ -247,8 +249,13 @@ export default function EmployeeProfiles() {
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
               body: JSON.stringify(merged)
             });
-            if (res.ok) updated++;
-            else failed++;
+            if (res.ok) {
+              updated++;
+            } else {
+              failed++;
+              const errData = await res.json().catch(() => ({}));
+              errors.push({ row: rowNum, staffId: emp.id, reason: errData.error || 'Server rejected the record' });
+            }
           } catch {
             failed++;
             errors.push({ row: rowNum, staffId: emp.id, reason: 'Network error while updating' });
@@ -265,7 +272,8 @@ export default function EmployeeProfiles() {
               existingIds.add(emp.id); // Prevent intra-file duplicates from double-adding
             } else {
               failed++;
-              errors.push({ row: rowNum, staffId: emp.id, reason: 'Server rejected the record' });
+              const errData = await res.json().catch(() => ({}));
+              errors.push({ row: rowNum, staffId: emp.id, reason: errData.error || 'Server rejected the record' });
             }
           } catch {
             failed++;
@@ -410,32 +418,34 @@ export default function EmployeeProfiles() {
     }
   };
 
-  const filteredEmployees = employees.filter(e => 
-    e.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (e.khmerName && e.khmerName.includes(searchTerm)) ||
-    (e.department && e.department.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredEmployees = employees.filter(e => {
+    const idStr = String(e.id || '').toLowerCase();
+    const nameStr = String(e.name || '').toLowerCase();
+    const khmerNameStr = String(e.khmerName || '');
+    const deptStr = String(e.department || '').toLowerCase();
+    const term = searchTerm.toLowerCase();
+    return idStr.includes(term) || nameStr.includes(term) || khmerNameStr.includes(searchTerm) || deptStr.includes(term);
+  });
 
   return (
     <div className="flex flex-col h-full space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Employee Profiles / <span className="font-medium text-lg text-slate-500">ប្រវត្តិរូបបុគ្គលិក</span></h1>
+          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Employee Profiles / <span className="font-medium text-lg text-slate-500">ប្រវត្តិរូបបុគ្គលិក</span></h1>
           <p className="text-sm font-medium text-slate-500 mt-1">Manage all {employees.length} employee records</p>
         </div>
-        <div className="flex gap-3">
-          <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-50 font-semibold shadow-sm">
-            <Download size={18} /> Export
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <button onClick={handleExport} className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-50 font-semibold shadow-sm text-xs sm:text-sm">
+            <Download size={16} /> Export
           </button>
-          <button onClick={openAddEmployee} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm transition-colors text-sm">
-            <Plus size={16} /> Add Employee
+          <button onClick={openAddEmployee} className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm transition-colors text-xs sm:text-sm">
+            <Plus size={14} /> Add Employee
           </button>
-          <button onClick={() => setIsImportModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-500/20 font-semibold shadow-sm">
-            <Upload size={18} /> Bulk Import
+          <button onClick={() => setIsImportModalOpen(true)} className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-500/20 font-semibold shadow-sm text-xs sm:text-sm">
+            <Upload size={16} /> Bulk Import
           </button>
-          <button onClick={handleResetAllEmployees} className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-100 dark:hover:bg-red-500/20 font-semibold shadow-sm">
-            <Trash2 size={18} /> Reset All
+          <button onClick={handleResetAllEmployees} className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-xl hover:bg-red-100 dark:hover:bg-red-500/20 font-semibold shadow-sm text-xs sm:text-sm">
+            <Trash2 size={16} /> Reset All
           </button>
         </div>
       </div>
@@ -553,7 +563,16 @@ export default function EmployeeProfiles() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">Eval Model</label>
-                  <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none" value={empForm.evalModel} onChange={e => setEmpForm({...empForm, evalModel: e.target.value})} />
+                  <select
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
+                    value={empForm.evalModel}
+                    onChange={e => setEmpForm({...empForm, evalModel: e.target.value})}
+                  >
+                    <option value="">-- Select Eval Model --</option>
+                    {WEIGHTING_SCHEMES.map(s => (
+                      <option key={s.id} value={s.id}>{s.label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">Eval Period</label>

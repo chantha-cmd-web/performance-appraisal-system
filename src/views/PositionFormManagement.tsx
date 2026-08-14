@@ -2,7 +2,7 @@ import { apiFetch } from '../mockApi';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { usePositionFormConfigs, useSettings } from '../hooks/useSettings';
-import { PREDEFINED_POSITIONS, PositionFormConfig, PositionSection, PositionCriterion } from '../types';
+import { PREDEFINED_POSITIONS, PositionFormConfig, PositionSection, PositionCriterion, WEIGHTING_SCHEMES } from '../types';
 import { Save, Plus, Trash2, ChevronDown, ChevronRight, ShieldAlert, Copy, ChevronUp, Eye, RotateCcw, AlertTriangle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import toast from 'react-hot-toast';
@@ -101,7 +101,7 @@ export default function PositionFormManagement() {
     const newConfig: PositionFormConfig = {
       id: 'pf_' + Date.now(),
       position,
-      weightingScheme: evalConfig?.weightingSchemes?.[0]?.id || 'campus_60_40',
+      weightingScheme: evalConfig?.weightingSchemes?.[0]?.id || WEIGHTING_SCHEMES[0]?.id || 'campus_60_40',
       sections: [],
       criteria: []
     };
@@ -295,17 +295,17 @@ export default function PositionFormManagement() {
             ការគ្រប់គ្រងแบบฟូមវាយតម្លៃតាមតួនាទី • Configure evaluation forms per position
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
           {selectedConfig && (
             <button onClick={() => setPreviewOpen(true)}
-              className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl shadow-sm transition-colors active:scale-95">
+              className="flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl shadow-sm transition-colors active:scale-95 text-xs sm:text-sm">
               <Eye size={18} />
               Preview
             </button>
           )}
           <button onClick={handleSave} disabled={saving || !isDirty}
             className={cn(
-              "flex items-center gap-2 px-6 py-3 font-bold rounded-xl shadow-lg transition-colors active:scale-95 disabled:opacity-50",
+              "flex items-center gap-2 px-5 py-3 font-bold rounded-xl shadow-lg transition-colors active:scale-95 disabled:opacity-50 text-xs sm:text-sm",
               isDirty
                 ? "bg-indigo-600 hover:bg-indigo-700 text-white animate-pulse"
                 : "bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
@@ -323,9 +323,9 @@ export default function PositionFormManagement() {
         </div>
       )}
 
-      <div className="flex gap-6 items-start">
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
         {/* Left: Position List */}
-        <div className="w-1/3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col h-[75vh]">
+        <div className="w-full lg:w-1/3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col h-auto lg:h-[75vh]">
           <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
             <h2 className="font-bold text-slate-700 dark:text-slate-200 mb-3">Positions ({localConfigs.length})</h2>
             {availablePositions.length > 0 && (
@@ -376,7 +376,7 @@ export default function PositionFormManagement() {
         </div>
 
         {/* Right: Config Editor */}
-        <div className="w-2/3 flex flex-col gap-6">
+        <div className="w-full lg:w-2/3 flex flex-col gap-6">
           {selectedConfig ? (
             <>
               {/* Config Header */}
@@ -392,7 +392,7 @@ export default function PositionFormManagement() {
                     <select className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 font-medium text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
                       value={selectedConfig.weightingScheme}
                       onChange={e => updateConfig(selectedConfig.id, { weightingScheme: e.target.value })}>
-                      {evalConfig?.weightingSchemes?.map(s => (
+                      {(evalConfig?.weightingSchemes && evalConfig.weightingSchemes.length > 0 ? evalConfig.weightingSchemes : WEIGHTING_SCHEMES).map(s => (
                         <option key={s.id} value={s.id}>{s.label}</option>
                       ))}
                     </select>

@@ -386,16 +386,59 @@ function extractUrl(input: RequestInfo | URL): string {
 }
 
 function extractToken(init?: RequestInit): string | null {
-  const authHeader = init?.headers && (typeof init.headers === 'object' ? (init.headers as any)?.Authorization : null);
-  return authHeader && typeof authHeader === 'string' ? authHeader.replace('Bearer ', '') : null;
+  if (!init || !init.headers) return null;
+  let authHeader: string | null = null;
+  if (typeof (init.headers as any).get === 'function') {
+    authHeader = (init.headers as any).get('Authorization') || (init.headers as any).get('authorization');
+  } else if (Array.isArray(init.headers)) {
+    const pair = (init.headers as string[][]).find(p => p[0] && p[0].toLowerCase() === 'authorization');
+    authHeader = pair ? pair[1] : null;
+  } else if (typeof init.headers === 'object') {
+    const headersObj = init.headers as Record<string, string>;
+    authHeader = headersObj.Authorization || headersObj.authorization || headersObj.AUTHORIZATION;
+  }
+  if (!authHeader || typeof authHeader !== 'string') return null;
+  return authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader;
+}
+
+function decodeJwt(token: string): any {
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      window
+        .atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
+
+function getMockUser(token: string | null, db: any): any {
+  if (!token) return null;
+  if (token === 'mock-token') {
+    return db.users?.find((u: any) => u.role === 'superadmin') || { id: 'superadmin', role: 'superadmin', name: 'Super Administrator' };
+  }
+  const decoded = decodeJwt(token);
+  if (decoded && decoded.id && decoded.role) {
+    return { id: decoded.id, role: decoded.role, name: decoded.name || decoded.id };
+  }
+  return db.users?.find((u: any) => u.id === token) || null;
 }
 
 function handleMockRequest(url: string, method: string, body: any, token: string | null, db: any): Response {
-  const currentUser = token ? db.users?.find((u: any) => u.id === token || token === 'mock-token') : null;
-  const isAdminUser = currentUser && currentUser.role === 'superadmin';
+  const currentUser = getMockUser(token, db);
+  const isAdminUser = currentUser && (currentUser.role === 'superadmin' || currentUser.role === 'admin');
 
   if (url.includes('/api/auth/login') && method === 'POST') {
-    const user = db.users?.find((u: any) => u.id === body?.userId && u.password === body?.password);
+    const inputUserId = body?.userId?.trim()?.toLowerCase();
+    const inputPassword = body?.password?.trim();
+    const user = db.users?.find((u: any) => String(u.id || '').toLowerCase() === inputUserId && u.password === inputPassword);
     if (user) {
       const { password: _, ...safeUser } = user;
       return makeResponse({ token: 'mock-token', user: safeUser });
@@ -414,7 +457,8 @@ function handleMockRequest(url: string, method: string, body: any, token: string
     try { data = JSON.parse(data); } catch (e) {}
     if (data === undefined || data === null) {
       if (key === 'evaluation_config') data = JSON.parse(defaultEvaluationConfig);
-      else data = [];
+      else if (key === 'position_form_configs') data = [];
+      else data = null;
     }
     return makeResponse(data);
   }
@@ -536,7 +580,7 @@ function handleMockRequest(url: string, method: string, body: any, token: string
     const id = url.split('/').pop();
     if (method === 'GET') {
       if (!isAdminUser) return makeResponse({ error: 'Access denied.' }, 403);
-      const safeUsers = (db.users || []).map((u: any) => ({ id: u.id, name: u.name, role: u.role }));
+      const safeUsers = (db.users || []).map((u: any) => ({ id: u.id, name: u.name, role: u.role, password: u.password }));
       return makeResponse(safeUsers);
     }
     if (method === 'POST') {
@@ -660,11 +704,43 @@ async function checkServerAvailable(): Promise<boolean> {
     const checkUrl = apiUrl('/api/auth/me');
     const res = await window.fetch(checkUrl, { signal: controller.signal });
     clearTimeout(timeout);
+    
+    // If we get an HTML page for an API check, the backend server isn't running
+    // (the request fell back to Vite dev server index.html or an nginx error page)
     const ct = res.headers.get('content-type') || '';
-    return ct.includes('application/json');
+    if (ct.includes('text/html')) {
+      return false;
+    }
+    
+    // Any other response (even 401 Unauthorized or 403 Forbidden) indicates
+    // the backend server is active and responding
+    return true;
   } catch {
     return false;
   }
+}
+
+function checkAuthResponse(res: Response) {
+  if (res.status === 401 || res.status === 403) {
+    try {
+      const cloned = res.clone();
+      cloned.json().then(data => {
+        if (data && data.error && (
+          data.error.toLowerCase().includes('expired') || 
+          data.error.toLowerCase().includes('invalid') || 
+          data.error === 'Access token is missing'
+        )) {
+          console.warn("[Auth] Session expired or invalid:", data.error);
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.dispatchEvent(new CustomEvent('auth:expired'));
+        }
+      }).catch(() => {});
+    } catch (e) {
+      console.error("[Auth] Failed to clone response or parse json", e);
+    }
+  }
+  return res;
 }
 
 const IS_PROD = import.meta.env.PROD;
@@ -674,9 +750,26 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
 
   if (rawUrl.includes('/api/')) {
     const fullUrl = apiUrl(rawUrl);
+    const token = extractToken(init);
+    const isMockToken = token && (token === 'mock-token' || token.startsWith('mock-token-') || !token.includes('.'));
 
-    if (IS_PROD) {
-      return window.fetch(fullUrl, init);
+    if (IS_PROD && !isMockToken) {
+      try {
+        const res = await window.fetch(fullUrl, init);
+        const ct = res.headers.get('content-type') || '';
+        if (ct.includes('text/html')) {
+          return new Response(JSON.stringify({ error: `Server returned an HTML response (Status ${res.status}).` }), {
+            status: res.status || 500,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+        return checkAuthResponse(res);
+      } catch (err: any) {
+        return new Response(JSON.stringify({ error: err.message || 'Network error' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     if (serverAvailable === null) {
@@ -686,21 +779,39 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
       }
     }
 
-    if (serverAvailable) {
+    if (serverAvailable && !isMockToken) {
       try {
-        return await window.fetch(fullUrl, init);
+        const res = await window.fetch(fullUrl, init);
+        const ct = res.headers.get('content-type') || '';
+        if (ct.includes('text/html')) {
+          // If the server returned HTML for an API route, it's an error page (e.g. 502/404)
+          // We intercept it and return a valid JSON error so that client code doesn't crash on .json() parsing!
+          return new Response(JSON.stringify({ error: `Server returned an HTML response (Status ${res.status}).` }), {
+            status: res.status || 500,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+        return checkAuthResponse(res);
       } catch {
         serverAvailable = false;
         initMockDb();
       }
     }
 
-    if (!serverAvailable && rawUrl.includes('/api/auth/me')) {
+    if (!serverAvailable && !isMockToken && rawUrl.includes('/api/auth/me')) {
       const recovered = await checkServerAvailable();
       if (recovered) {
         serverAvailable = true;
         try {
-          return await window.fetch(fullUrl, init);
+          const res = await window.fetch(fullUrl, init);
+          const ct = res.headers.get('content-type') || '';
+          if (ct.includes('text/html')) {
+            return new Response(JSON.stringify({ error: `Server returned an HTML response (Status ${res.status}).` }), {
+              status: res.status || 500,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+          return checkAuthResponse(res);
         } catch {
           serverAvailable = false;
           initMockDb();
@@ -710,7 +821,6 @@ export const apiFetch = async (input: RequestInfo | URL, init?: RequestInit): Pr
 
     const method = init?.method || 'GET';
     const body = getJsonBody(init);
-    const token = extractToken(init);
     const db = getDb();
     await new Promise(r => setTimeout(r, 50));
     return handleMockRequest(rawUrl, method, body, token, db);

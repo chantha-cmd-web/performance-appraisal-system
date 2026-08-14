@@ -124,7 +124,7 @@ function buildBodyContent(data: PdfReportData, pageNum: number): string {
   const radarSize = 200;
   const radarCenter = radarSize / 2;
   const radarRadius = 70;
-  const radarLabels = sectionData.map(sd => sd.sec.khName.substring(0, 12));
+  const radarLabels = sectionData.map(sd => (sd.sec.khName || sd.sec.name || '').substring(0, 12));
   const radarValues = sectionData.map(sd => sd.secMax > 0 ? (sd.totalSuper / sd.secMax) : 0);
   const radarCount = radarLabels.length;
 
@@ -215,9 +215,7 @@ function buildBodyContent(data: PdfReportData, pageNum: number): string {
       <div class="page-header-title">Performance Appraisal Report</div>
     </div>
     <div class="page-header-right">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
-      </svg>
+      <img src="https://lh3.googleusercontent.com/d/1BedaCZHY2D8BflrgKy4-wDoTsTJ2eQ2F" alt="Logo" style="height: 38px; width: auto; object-fit: contain;" />
     </div>
   </div>
   <div class="page-divider"></div>
@@ -305,9 +303,7 @@ function buildBodyContent(data: PdfReportData, pageNum: number): string {
       <div class="page-header-title">Performance Appraisal Report</div>
     </div>
     <div class="page-header-right">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
-      </svg>
+      <img src="https://lh3.googleusercontent.com/d/1BedaCZHY2D8BflrgKy4-wDoTsTJ2eQ2F" alt="Logo" style="height: 38px; width: auto; object-fit: contain;" />
     </div>
   </div>
   <div class="page-divider"></div>
@@ -500,7 +496,7 @@ function getStyles(): string {
   .page-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     margin-bottom: 6px;
   }
   .page-header-brand {
@@ -517,7 +513,7 @@ function getStyles(): string {
     margin-top: 2px;
   }
   .page-header-right {
-    opacity: 0.4;
+    opacity: 1;
   }
   .page-divider {
     height: 2px;

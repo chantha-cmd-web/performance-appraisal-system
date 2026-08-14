@@ -11,3 +11,9 @@ coverage/
 .env.local
 .env.*.local
 database.sqlite
+.firebase/
+db.json
+E-Performance Appraisal/
+*.cjs.map
+functions/server.cjs
+functions/server.cjs.map

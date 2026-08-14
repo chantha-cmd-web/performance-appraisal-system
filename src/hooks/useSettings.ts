@@ -2,6 +2,7 @@ import { apiFetch } from '../mockApi';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { PositionFormConfig } from '../types';
+import toast from 'react-hot-toast';
 
 export interface Criterion {
   id: number;
@@ -85,9 +86,13 @@ export function useSettings() {
       if (res.ok) {
         setConfig(newConfig);
         return true;
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to save configuration');
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      toast.error(e.message || 'Error saving settings.');
     }
     return false;
   };
@@ -134,9 +139,13 @@ export function useSelfEvalSettings() {
       if (res.ok) {
         setProfiles(newProfiles);
         return true;
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to save self evaluation profiles');
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      toast.error(e.message || 'Error saving self-evaluation profiles.');
     }
     return false;
   };
@@ -183,9 +192,13 @@ export function usePositionFormConfigs() {
       if (res.ok) {
         setConfigs(newConfigs);
         return true;
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to save position configurations');
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      toast.error(e.message || 'Error saving position configurations.');
     }
     return false;
   };

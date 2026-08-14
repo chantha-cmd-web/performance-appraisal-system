@@ -32,7 +32,7 @@ export default function AuditLogs() {
       });
       if (res.ok) {
         const data = await res.json();
-        setLogs(data);
+        setLogs(Array.isArray(data) ? data : []);
       }
     } catch (err) {
       console.error(err);
@@ -71,15 +71,15 @@ export default function AuditLogs() {
       </div>
 
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col h-[calc(100vh-200px)]">
-        <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-between">
+        <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center text-red-600 dark:text-red-400">
+            <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center text-red-600 dark:text-red-400 shrink-0">
               <ShieldAlert size={20} />
             </div>
-            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">សកម្មភាពប្រព័ន្ធ / System Actions</h2>
+            <h2 className="text-sm sm:text-lg font-bold text-slate-800 dark:text-slate-100">សកម្មភាពប្រព័ន្ធ / System Actions</h2>
           </div>
           
-          <div className="relative">
+          <div className="relative w-full sm:w-auto">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
               <Search size={16} />
             </div>

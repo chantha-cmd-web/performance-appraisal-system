@@ -21,7 +21,12 @@ export async function fetchNotifications(token: string): Promise<AppNotification
     const res = await apiFetch('/api/notifications', {
       headers: { Authorization: `Bearer ${token}` }
     });
-    if (res.ok) return await res.json();
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        return data;
+      }
+    }
   } catch (err) {
     console.error('Failed to fetch notifications', err);
   }
@@ -71,10 +76,40 @@ export async function sendStatusChangeNotification(
   switch (newStatus) {
     case 'Waiting for Supervisor':
       if (evalData.appraiser) {
+        const isSupporterCompleted = senderName && senderName !== evalData.employeeName;
+        const msg = isSupporterCompleted
+          ? `Support Evaluator has completed their review of ${baseMsg}. Your review is now required.`
+          : `${baseMsg} has submitted their self-evaluation. Please review.`;
+        const khMsg = isSupporterCompleted
+          ? `អ្នកគាំទ្របានបញ្ចប់ការពិនិត្យ ${baseMsg}។ ឥឡូវនេះត្រូវការការពិនិត្យរបស់អ្នក។`
+          : `${baseMsg} បានដាក់ស្នើការវាយតម្លៃខ្លួនឯង។ សូមពិនិត្យមើល។`;
+        await createNotification(token, {
+          userId: evalData.appraiser,
+          message: msg,
+          khMessage: khMsg,
+          type: 'action_required',
+          link: evalLink,
+          evaluationId: evalId,
+        });
+      }
+      break;
+
+    case 'Waiting for Reviews':
+      if (evalData.appraiser) {
         await createNotification(token, {
           userId: evalData.appraiser,
           message: `${baseMsg} has submitted their self-evaluation. Please review.`,
           khMessage: `${baseMsg} បានដាក់ស្នើការវាយតម្លៃខ្លួនឯង។ សូមពិនិត្យមើល។`,
+          type: 'action_required',
+          link: evalLink,
+          evaluationId: evalId,
+        });
+      }
+      if (evalData.supporter) {
+        await createNotification(token, {
+          userId: evalData.supporter,
+          message: `${baseMsg} has submitted their self-evaluation. Please review as Supporter.`,
+          khMessage: `${baseMsg} បានដាក់ស្នើការវាយតម្លៃខ្លួនឯង។ សូមពិនិត្យមើលក្នុងនាមជាអ្នកគាំទ្រ។`,
           type: 'action_required',
           link: evalLink,
           evaluationId: evalId,

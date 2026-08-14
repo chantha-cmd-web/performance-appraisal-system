@@ -1,7 +1,7 @@
 import { apiFetch } from '../mockApi';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { CriteriaScore, PeerFeedback, STATUS_LABELS } from '../types';
+import { CriteriaScore, PeerFeedback, STATUS_LABELS, WEIGHTING_SCHEMES } from '../types';
 import { Save, Plus, Trash2, Printer, Lock, Unlock, CheckCircle2, Circle, AlertTriangle } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSettings, useSelfEvalSettings, usePositionFormConfigs } from '../hooks/useSettings';
@@ -255,14 +255,15 @@ export default function EvaluationForm() {
         const emp = await res.json();
         if (emp) {
           const posConfig = positionConfigs?.find(c => c.position === emp.position);
-          const resolvedWeightScheme = posConfig?.weightingScheme || emp.evalModel || '';
+          const resolvedWeightScheme = emp.evalModel || posConfig?.weightingScheme || '';
           setFormData(prev => ({
             ...prev,
             employeeName: emp.name + (emp.khmerName ? ` (${emp.khmerName})` : ''),
             campus: emp.campus || prev.campus, department: emp.department || prev.department,
             position: emp.position || prev.position, category: emp.category || prev.category,
             appraiser: emp.supervisorId || prev.appraiser, supporter: emp.supporterId || prev.supporter,
-            weightScheme: resolvedWeightScheme, evalPeriod: emp.evalPeriod || prev.evalPeriod
+            weightScheme: resolvedWeightScheme, evalPeriod: emp.evalPeriod || prev.evalPeriod,
+            evaluationType: emp.category || prev.evaluationType || 'management'
           }));
         }
       }
@@ -280,7 +281,16 @@ export default function EvaluationForm() {
   const superadminEdit = isSuperAdmin(user) && !isViewOnly;
 
   // ─── Status & Workflow ───
-  const nextStatus = (action: 'save' | 'submit' | 'reject' | 'reopen') => getNextStatus(formData.status, action, cols.supporter);
+  const actingRole = useMemo(() => {
+    if (!user) return undefined;
+    if (user.role === 'superadmin') return 'superadmin';
+    if (user.id === formData.supporter) return 'supporter';
+    if (user.id === formData.appraiser) return 'supervisor';
+    if (user.id === formData.employeeId) return 'employee';
+    return user.role;
+  }, [user, formData.supporter, formData.appraiser, formData.employeeId]);
+
+  const nextStatus = (action: 'save' | 'submit' | 'reject' | 'reopen') => getNextStatus(formData.status, action, cols.supporter, actingRole);
   const isCompleted = formData.status === 'Completed' || formData.status === 'Approved';
   const workflowStage = getWorkflowStage(formData.status);
 
@@ -299,11 +309,17 @@ export default function EvaluationForm() {
           totalSelf, totalSuper, overallScore
         })
       });
-      if (!res.ok) throw new Error('Failed to submit evaluation');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to submit evaluation');
+      }
+
+      const responseData = await res.json();
+      const finalEvalId = responseData.id || editId;
 
       // Send notification for status change
-      if (editId && token) {
-        await sendStatusChangeNotification(token, targetStatus, editId, {
+      if (finalEvalId && token) {
+        await sendStatusChangeNotification(token, targetStatus, String(finalEvalId), {
           employeeId: formData.employeeId,
           employeeName: formData.employeeName,
           appraiser: formData.appraiser,
@@ -312,10 +328,20 @@ export default function EvaluationForm() {
         }, user?.name || '');
       }
 
+      if (action === 'save') {
+        toast.success('Evaluation saved as draft / បានរក្សាទុកជាព្រាង');
+      } else if (action === 'reject') {
+        toast.success('Evaluation returned to employee / បានផ្ញើត្រឡប់ទៅបុគ្គលិកវិញ');
+      } else if (action === 'reopen') {
+        toast.success('Evaluation reopened / បានបើកឡើងវិញ');
+      } else {
+        toast.success('Evaluation submitted successfully / បានដាក់ស្នើដោយជោគជ័យ');
+      }
+
       navigate('/dashboard');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Error saving evaluation');
+      toast.error(err.message ? `Error: ${err.message}` : 'Error processing evaluation / បរាជ័យក្នុងការរក្សាទុក');
     } finally { setLoading(false); }
   };
 
@@ -347,7 +373,7 @@ export default function EvaluationForm() {
 
   const currentStepIdx = workflowSteps.findIndex(s => {
     if (s.key === 'self') return workflowStage === 'Self-Evaluation' || workflowStage === 'Returned for Revision';
-    if (s.key === 'supervisor') return workflowStage === 'Supervisor Review';
+    if (s.key === 'supervisor') return workflowStage === 'Supervisor Review' || workflowStage === 'Pending Reviews';
     if (s.key === 'supporter') return workflowStage === 'Supporter Review';
     if (s.key === 'final') return workflowStage === 'Completed' || workflowStage === 'Approved';
     return false;
@@ -470,9 +496,24 @@ export default function EvaluationForm() {
 
             <div>
               <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Weighting Scheme / របៀបគណនា</label>
-              <div className="w-full px-4 py-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.1] bg-slate-50/80 dark:bg-white/[0.04] font-medium text-sm text-slate-500 dark:text-slate-400">
-                {config?.weightingSchemes?.find(s => s.id === formData.weightScheme)?.label || formData.weightScheme || '—'}
-              </div>
+              {isViewOnly ? (
+                <div className="w-full px-4 py-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.1] bg-slate-50/80 dark:bg-white/[0.04] font-medium text-sm text-slate-500 dark:text-slate-400">
+                  {config?.weightingSchemes?.find(s => s.id === formData.weightScheme)?.label || 
+                   WEIGHTING_SCHEMES.find(s => s.id === formData.weightScheme)?.label || 
+                   formData.weightScheme || '—'}
+                </div>
+              ) : (
+                <select
+                  className="w-full px-4 py-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.1] bg-slate-50 dark:bg-slate-900/50 font-medium text-sm text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer"
+                  value={formData.weightScheme}
+                  onChange={e => setFormData({ ...formData, weightScheme: e.target.value })}
+                >
+                  <option value="">-- Select Weighting Scheme --</option>
+                  {(config?.weightingSchemes && config.weightingSchemes.length > 0 ? config.weightingSchemes : WEIGHTING_SCHEMES).map(s => (
+                    <option key={s.id} value={s.id}>{s.label}</option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
         </div>

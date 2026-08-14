@@ -83,24 +83,24 @@ export default function SelfEvalCriteriaManagement() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Self Evaluation Criteria</h1>
+          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Self Evaluation Criteria</h1>
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">Manage criteria rules for self evaluations</p>
         </div>
         <button 
           onClick={handleSave} 
           disabled={saving}
-          className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg transition-colors active:scale-95 disabled:opacity-50"
+          className="flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg transition-colors active:scale-95 disabled:opacity-50 text-xs sm:text-sm self-start sm:self-auto"
         >
           <Save size={18} />
           {saving ? 'Saving...' : 'Save Settings'}
         </button>
       </div>
 
-      <div className="flex gap-6 items-start">
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
         {/* Sidebar for Profiles */}
-        <div className="w-1/3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col h-[70vh]">
+        <div className="w-full lg:w-1/3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col h-auto lg:h-[70vh]">
           <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex justify-between items-center">
             <h2 className="font-bold text-slate-700 dark:text-slate-200">Profiles</h2>
             <button onClick={addProfile} className="text-indigo-600 hover:text-indigo-700">
@@ -123,67 +123,70 @@ export default function SelfEvalCriteriaManagement() {
         </div>
 
         {/* Profile Editor */}
-        <div className="w-2/3 flex flex-col gap-6">
+        <div className="w-full lg:w-2/3 flex flex-col gap-6">
           {selectedProfile ? (
             <>
               <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden p-6">
                 <h3 className="font-bold text-lg mb-4 text-slate-800 dark:text-slate-100">Profile Settings</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1">Profile Name</label>
-                    <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-transparent" value={selectedProfile.name} onChange={e => updateProfile(selectedProfile.id, { name: e.target.value })} />
+                    <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-transparent text-slate-900 dark:text-slate-100" value={selectedProfile.name} onChange={e => updateProfile(selectedProfile.id, { name: e.target.value })} />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1">Target Department</label>
-                    <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-transparent" value={selectedProfile.department} onChange={e => updateProfile(selectedProfile.id, { department: e.target.value })} />
+                    <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-transparent text-slate-900 dark:text-slate-100" value={selectedProfile.department} onChange={e => updateProfile(selectedProfile.id, { department: e.target.value })} />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1">Target Campus</label>
-                    <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-transparent" value={selectedProfile.campus} onChange={e => updateProfile(selectedProfile.id, { campus: e.target.value })} />
+                    <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-transparent text-slate-900 dark:text-slate-100" value={selectedProfile.campus} onChange={e => updateProfile(selectedProfile.id, { campus: e.target.value })} />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1">Target Position</label>
-                    <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-transparent" value={selectedProfile.position} onChange={e => updateProfile(selectedProfile.id, { position: e.target.value })} />
+                    <input className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-transparent text-slate-900 dark:text-slate-100" value={selectedProfile.position} onChange={e => updateProfile(selectedProfile.id, { position: e.target.value })} />
                   </div>
                 </div>
               </div>
 
               <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex-1">
-                <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
+                <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50 gap-2">
                   <h3 className="font-bold text-slate-800 dark:text-slate-100">Criteria</h3>
                   <button 
                     onClick={() => updateProfile(selectedProfile.id, { criteria: [...selectedProfile.criteria, { id: Date.now(), kh: '', en: '', khDesc: '', desc: '', max: 10 }] })}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-bold text-sm rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-500/20"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-bold text-xs sm:text-sm rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-500/20 whitespace-nowrap"
                   >
                     <Plus size={16} /> Add Criterion
                   </button>
                 </div>
                 <div className="p-4 space-y-4">
                   {selectedProfile.criteria.map((c, i) => (
-                    <div key={c.id} className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 flex gap-4 items-start">
-                      <div className="flex-1 grid grid-cols-2 gap-4">
-                        <input placeholder="Khmer Title" className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800" value={c.kh} onChange={e => {
+                    <div key={c.id} className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 flex flex-col md:flex-row gap-4 items-start md:items-center">
+                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+                        <input placeholder="Khmer Title" className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" value={c.kh} onChange={e => {
                           const newC = [...selectedProfile.criteria]; newC[i].kh = e.target.value; updateProfile(selectedProfile.id, { criteria: newC });
                         }} />
-                        <input placeholder="English Title" className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800" value={c.en} onChange={e => {
+                        <input placeholder="English Title" className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100" value={c.en} onChange={e => {
                           const newC = [...selectedProfile.criteria]; newC[i].en = e.target.value; updateProfile(selectedProfile.id, { criteria: newC });
                         }} />
-                        <textarea placeholder="Khmer Description" rows={2} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm" value={c.khDesc} onChange={e => {
+                        <textarea placeholder="Khmer Description" rows={2} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm" value={c.khDesc} onChange={e => {
                           const newC = [...selectedProfile.criteria]; newC[i].khDesc = e.target.value; updateProfile(selectedProfile.id, { criteria: newC });
                         }} />
-                        <textarea placeholder="English Description" rows={2} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm" value={c.desc} onChange={e => {
+                        <textarea placeholder="English Description" rows={2} className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm" value={c.desc} onChange={e => {
                           const newC = [...selectedProfile.criteria]; newC[i].desc = e.target.value; updateProfile(selectedProfile.id, { criteria: newC });
                         }} />
                       </div>
-                      <div className="w-24">
-                        <input type="number" placeholder="Max" className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-center font-bold" value={c.max} onChange={e => {
-                          const newC = [...selectedProfile.criteria]; newC[i].max = Number(e.target.value); updateProfile(selectedProfile.id, { criteria: newC });
-                        }} />
+                      <div className="flex items-center gap-3 w-full md:w-auto shrink-0 mt-3 md:mt-0 justify-between md:justify-start">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-400">Max Score:</span>
+                          <input type="number" placeholder="Max" className="w-20 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-center font-bold" value={c.max} onChange={e => {
+                            const newC = [...selectedProfile.criteria]; newC[i].max = Number(e.target.value); updateProfile(selectedProfile.id, { criteria: newC });
+                          }} />
+                        </div>
+                        <button onClick={() => {
+                          const newC = selectedProfile.criteria.filter((_, idx) => idx !== i);
+                          updateProfile(selectedProfile.id, { criteria: newC });
+                        }} className="p-2 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 size={20} /></button>
                       </div>
-                      <button onClick={() => {
-                        const newC = selectedProfile.criteria.filter((_, idx) => idx !== i);
-                        updateProfile(selectedProfile.id, { criteria: newC });
-                      }} className="p-2 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10"><Trash2 size={20} /></button>
                     </div>
                   ))}
                 </div>

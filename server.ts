@@ -1,14 +1,13 @@
 import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { WebSocketServer, WebSocket } from 'ws';
 import http from 'http';
-import { pool, migrate, transaction } from './db';
+import { pool, migrate, transaction, syncFromGoogleSheets, flushGoogleSheets } from './db';
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
+const PORT = Number(process.env.PORT || 3000);
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-2026';
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
 
@@ -94,16 +93,25 @@ function setupWebSocket() {
 const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.sendStatus(401);
+  if (!token) {
+    console.warn(`[Auth] Missing token for route ${req.method} ${req.path}`);
+    return res.status(401).json({ error: 'Access token is missing' });
+  }
   jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
+    if (err) {
+      console.warn(`[Auth] JWT Verification failed for route ${req.method} ${req.path}: ${err.message}. Token received: ${token.substring(0, 15)}...`);
+      return res.status(403).json({ error: 'Access token is invalid or expired' });
+    }
     req.user = user as any;
     next();
   });
 };
 
 const requireSuperAdmin = (req: Request, res: Response, next: NextFunction) => {
-  if (req.user?.role !== 'superadmin') return res.status(403).json({ error: 'Access denied. Super Admin only.' });
+  if (req.user?.role !== 'superadmin') {
+    console.warn(`[Auth] SuperAdmin role required. User role is: ${req.user?.role} (id: ${req.user?.id})`);
+    return res.status(403).json({ error: 'Access denied. Super Admin only.' });
+  }
   next();
 };
 
@@ -120,7 +128,25 @@ const logAudit = async (userId: string, userName: string, action: string, detail
 };
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Wait for pending Google Sheets writes before sending a response. This keeps
+// the spreadsheet up to date even when running inside Cloud Functions, where an
+// instance can be frozen as soon as the response is sent.
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const originalJson = res.json.bind(res);
+  res.json = ((body: any) => {
+    const send = () => originalJson(body);
+    if (process.env.GOOGLE_APPS_SCRIPT_URL) {
+      flushGoogleSheets().then(send, send);
+    } else {
+      send();
+    }
+    return res;
+  }) as typeof res.json;
+  next();
+});
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   const origin = req.headers.origin;
@@ -135,14 +161,38 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 const server = http.createServer(app);
 
+// --- HEALTH ROUTES ---
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', time: new Date().toISOString() });
+});
+
 // --- AUTH ROUTES ---
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { userId, password } = req.body;
-    const result = await pool.query('SELECT * FROM "users" WHERE "id" = $1', [userId]);
+    const cleanId = String(userId || '').trim().toLowerCase();
+    const result = await pool.query('SELECT * FROM "users" WHERE "id" = $1', [cleanId]);
     const user = result.rows[0];
 
-    if (!user || !bcrypt.compareSync(password, user.password)) {
+    let isMatch = false;
+    if (user) {
+      const dbPassword = String(user.password || '');
+      const inputPassword = String(password || '');
+      try {
+        if (dbPassword.startsWith('$2')) {
+          isMatch = bcrypt.compareSync(inputPassword, dbPassword);
+        } else {
+          isMatch = inputPassword === dbPassword;
+        }
+      } catch {
+        isMatch = inputPassword === dbPassword;
+      }
+      if (!isMatch) {
+        isMatch = inputPassword === dbPassword;
+      }
+    }
+
+    if (!user || !isMatch) {
       return res.status(401).json({ error: 'Invalid User ID or Password' });
     }
 
@@ -161,7 +211,7 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
 // --- USER ROUTES ---
 app.get('/api/users', authenticateToken, requireSuperAdmin, async (req, res) => {
   try {
-    const result = await pool.query('SELECT "id", "name", "role" FROM "users"');
+    const result = await pool.query('SELECT "id", "name", "role", "password" FROM "users"');
     res.json(result.rows);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -171,14 +221,14 @@ app.get('/api/users', authenticateToken, requireSuperAdmin, async (req, res) => 
 app.post('/api/users', authenticateToken, requireSuperAdmin, async (req, res) => {
   try {
     const { id, name, role, password } = req.body;
-    const existing = await pool.query('SELECT "id" FROM "users" WHERE "id" = $1', [id]);
+    const idLower = String(id || '').trim().toLowerCase();
+    const existing = await pool.query('SELECT "id" FROM "users" WHERE "id" = $1', [idLower]);
     if (existing.rows.length > 0) {
       return res.status(400).json({ error: 'User ID already exists' });
     }
-    const hash = bcrypt.hashSync(password, 10);
-    await pool.query('INSERT INTO "users" ("id", "name", "password", "role") VALUES ($1, $2, $3, $4)', [id, name, hash, role]);
-    await logAudit(req.user!.id, req.user!.name, 'create_user', `Created user ${name} (${id})`);
-    broadcast('users:updated', { action: 'create', userId: id });
+    await pool.query('INSERT INTO "users" ("id", "name", "password", "role") VALUES ($1, $2, $3, $4)', [idLower, name, password, role]);
+    await logAudit(req.user!.id, req.user!.name, 'create_user', `Created user ${name} (${idLower})`);
+    broadcast('users:updated', { action: 'create', userId: idLower });
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -187,16 +237,15 @@ app.post('/api/users', authenticateToken, requireSuperAdmin, async (req, res) =>
 
 app.put('/api/users/:id', authenticateToken, requireSuperAdmin, async (req, res) => {
   try {
-    const { id } = req.params;
+    const idLower = String(req.params.id || '').trim().toLowerCase();
     const { name, role, password } = req.body;
     if (password) {
-      const hash = bcrypt.hashSync(password, 10);
-      await pool.query('UPDATE "users" SET "name" = $1, "role" = $2, "password" = $3 WHERE "id" = $4', [name, role, hash, id]);
+      await pool.query('UPDATE "users" SET "name" = $1, "role" = $2, "password" = $3 WHERE "id" = $4', [name, role, password, idLower]);
     } else {
-      await pool.query('UPDATE "users" SET "name" = $1, "role" = $2 WHERE "id" = $3', [name, role, id]);
+      await pool.query('UPDATE "users" SET "name" = $1, "role" = $2 WHERE "id" = $3', [name, role, idLower]);
     }
-    await logAudit(req.user!.id, req.user!.name, 'update_user', `Updated user ${name} (${id})`);
-    broadcast('users:updated', { action: 'update', userId: id });
+    await logAudit(req.user!.id, req.user!.name, 'update_user', `Updated user ${name} (${idLower})`);
+    broadcast('users:updated', { action: 'update', userId: idLower });
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -205,12 +254,12 @@ app.put('/api/users/:id', authenticateToken, requireSuperAdmin, async (req, res)
 
 app.delete('/api/users/:id', authenticateToken, requireSuperAdmin, async (req, res) => {
   try {
-    const { id } = req.params;
-    if (id === req.user!.id) return res.status(400).json({ error: 'Cannot delete yourself' });
-    if (id === 'superadmin') return res.status(400).json({ error: 'Cannot delete the default superadmin' });
-    await pool.query('DELETE FROM "users" WHERE "id" = $1', [id]);
-    await logAudit(req.user!.id, req.user!.name, 'delete_user', `Deleted user (${id})`);
-    broadcast('users:updated', { action: 'delete', userId: id });
+    const idLower = String(req.params.id || '').trim().toLowerCase();
+    if (idLower === req.user!.id.toLowerCase()) return res.status(400).json({ error: 'Cannot delete yourself' });
+    if (idLower === 'superadmin') return res.status(400).json({ error: 'Cannot delete the default superadmin' });
+    await pool.query('DELETE FROM "users" WHERE "id" = $1', [idLower]);
+    await logAudit(req.user!.id, req.user!.name, 'delete_user', `Deleted user (${idLower})`);
+    broadcast('users:updated', { action: 'delete', userId: idLower });
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -398,6 +447,18 @@ app.post('/api/data/import', authenticateToken, requireSuperAdmin, async (req, r
   }
 });
 
+app.post('/api/data/sync-sheets', authenticateToken, requireSuperAdmin, async (req, res) => {
+  try {
+    await syncFromGoogleSheets();
+    await logAudit(req.user!.id, req.user!.name, 'sync_sheets', 'Manually synchronized database with Google Sheets');
+    broadcast('employees:updated', {});
+    broadcast('evaluations:updated', {});
+    res.json({ success: true, message: 'Google Sheets synchronization completed successfully.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/data/reset/:type', authenticateToken, requireSuperAdmin, async (req, res) => {
   try {
     const { type } = req.params;
@@ -419,7 +480,7 @@ app.post('/api/data/reset/:type', authenticateToken, requireSuperAdmin, async (r
         await client.query('DELETE FROM "evaluations"');
         await client.query('DELETE FROM "employees"');
         await client.query("DELETE FROM \"users\" WHERE \"id\" != 'superadmin'");
-        await client.query('DELETE FROM "app_settings"');
+        await client.query('DELETE FROM "app_settings" WHERE "key" != \'evaluation_config\'');
       }
     });
     await logAudit(req.user!.id, req.user!.name, 'reset_data', `Reset data: ${type}`);
@@ -451,7 +512,8 @@ app.get('/api/evaluations', authenticateToken, async (req, res) => {
 app.get('/api/evaluations/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const evalResult = await pool.query('SELECT * FROM "evaluations" WHERE "id" = $1', [id]);
+    const evalId = isNaN(Number(id)) ? id : Number(id);
+    const evalResult = await pool.query('SELECT * FROM "evaluations" WHERE "id" = $1', [evalId]);
     if (evalResult.rows.length === 0) return res.status(404).json({ error: 'Evaluation not found' });
 
     const ev = evalResult.rows[0];
@@ -461,8 +523,8 @@ app.get('/api/evaluations/:id', authenticateToken, async (req, res) => {
     }
 
     const [scores, peers] = await Promise.all([
-      pool.query('SELECT * FROM "criteria_scores" WHERE "evaluationId" = $1', [id]),
-      pool.query('SELECT * FROM "peer_feedback" WHERE "evaluationId" = $1', [id]),
+      pool.query('SELECT * FROM "criteria_scores" WHERE "evaluationId" = $1', [evalId]),
+      pool.query('SELECT * FROM "peer_feedback" WHERE "evaluationId" = $1', [evalId]),
     ]);
 
     res.json({ ...ev, criteriaScores: scores.rows, peerFeedbacks: peers.rows });
@@ -487,19 +549,19 @@ app.post('/api/evaluations', authenticateToken, async (req, res) => {
         `INSERT INTO "evaluations" ("employeeId","employeeName","campus","department","position","appraiser","supporter","reviewDate","weightScheme","evaluationType","evalPeriod","totalSelf","totalSuper","overallScore","evaluatorComments","status","createdBy","createdByName")
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING "id"`,
         [
-          data.employeeId, data.employeeName, data.campus, data.department || '', data.position,
-          data.appraiser, data.supporter || '', data.reviewDate, data.weightScheme,
+          data.employeeId || '', data.employeeName || '', data.campus || '', data.department || '', data.position || '',
+          data.appraiser || '', data.supporter || '', data.reviewDate || '', data.weightScheme || '',
           data.evaluationType || 'management', data.evalPeriod || '',
-          data.totalSelf, data.totalSuper, data.overallScore,
-          data.evaluatorComments || '', data.status || 'Draft', createdBy, createdByName
+          data.totalSelf || 0, data.totalSuper || 0, data.overallScore || 0,
+          data.evaluatorComments || '', data.status || 'Draft', createdBy || '', createdByName || ''
         ]
       );
       const evalId = insertResult.rows[0].id;
 
-      for (const c of data.criteriaScores) {
+      for (const c of (data.criteriaScores || [])) {
         await client.query(
           'INSERT INTO "criteria_scores" ("evaluationId","criteriaId","selfScore","superScore","supporterScore","managementScore","aspScore") VALUES ($1,$2,$3,$4,$5,$6,$7)',
-          [evalId, c.criteriaId, c.selfScore, c.superScore, c.supporterScore || 0, c.managementScore || 0, c.aspScore || 0]
+          [evalId, c.criteriaId, c.selfScore || 0, c.superScore || 0, c.supporterScore || 0, c.managementScore || 0, c.aspScore || 0]
         );
       }
 
@@ -507,7 +569,7 @@ app.post('/api/evaluations', authenticateToken, async (req, res) => {
         for (const p of data.peerFeedbacks) {
           await client.query(
             'INSERT INTO "peer_feedback" ("evaluationId","peerName","feedback","score") VALUES ($1,$2,$3,$4)',
-            [evalId, p.peerName, p.feedback, p.score]
+            [evalId, p.peerName || '', p.feedback || '', p.score || 0]
           );
         }
       }
@@ -526,9 +588,10 @@ app.post('/api/evaluations', authenticateToken, async (req, res) => {
 app.put('/api/evaluations/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+    const evalId = isNaN(Number(id)) ? id : Number(id);
     const data = req.body;
 
-    const evResult = await pool.query('SELECT "createdBy","appraiser","supporter","employeeId" FROM "evaluations" WHERE "id" = $1', [id]);
+    const evResult = await pool.query('SELECT "createdBy","appraiser","supporter","employeeId" FROM "evaluations" WHERE "id" = $1', [evalId]);
     if (evResult.rows.length === 0) return res.status(404).json({ error: 'Evaluation not found' });
 
     const ev = evResult.rows[0];
@@ -546,28 +609,28 @@ app.put('/api/evaluations/:id', authenticateToken, async (req, res) => {
           "evaluatorComments"=$15,"status"=$16
          WHERE "id"=$17`,
         [
-          data.employeeId, data.employeeName, data.campus, data.department || '', data.position,
-          data.appraiser, data.supporter || '', data.reviewDate, data.weightScheme,
+          data.employeeId || '', data.employeeName || '', data.campus || '', data.department || '', data.position || '',
+          data.appraiser || '', data.supporter || '', data.reviewDate || '', data.weightScheme || '',
           data.evaluationType || 'management', data.evalPeriod || '',
-          data.totalSelf, data.totalSuper, data.overallScore,
-          data.evaluatorComments || '', data.status || 'Draft', id
+          data.totalSelf || 0, data.totalSuper || 0, data.overallScore || 0,
+          data.evaluatorComments || '', data.status || 'Draft', evalId
         ]
       );
 
-      await client.query('DELETE FROM "criteria_scores" WHERE "evaluationId" = $1', [id]);
-      for (const score of data.criteriaScores) {
+      await client.query('DELETE FROM "criteria_scores" WHERE "evaluationId" = $1', [evalId]);
+      for (const score of (data.criteriaScores || [])) {
         await client.query(
           'INSERT INTO "criteria_scores" ("evaluationId","criteriaId","selfScore","superScore","supporterScore","managementScore","aspScore") VALUES ($1,$2,$3,$4,$5,$6,$7)',
-          [id, score.criteriaId, score.selfScore || 0, score.superScore || 0, score.supporterScore || 0, score.managementScore || 0, score.aspScore || 0]
+          [evalId, score.criteriaId, score.selfScore || 0, score.superScore || 0, score.supporterScore || 0, score.managementScore || 0, score.aspScore || 0]
         );
       }
 
-      await client.query('DELETE FROM "peer_feedback" WHERE "evaluationId" = $1', [id]);
+      await client.query('DELETE FROM "peer_feedback" WHERE "evaluationId" = $1', [evalId]);
       if (data.peerFeedbacks && data.peerFeedbacks.length > 0) {
         for (const peer of data.peerFeedbacks) {
           await client.query(
             'INSERT INTO "peer_feedback" ("evaluationId","peerName","feedback","score") VALUES ($1,$2,$3,$4)',
-            [id, peer.peerName, peer.feedback, peer.score || 0]
+            [evalId, peer.peerName || '', peer.feedback || '', peer.score || 0]
           );
         }
       }
@@ -584,18 +647,19 @@ app.put('/api/evaluations/:id', authenticateToken, async (req, res) => {
 app.delete('/api/evaluations/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const evResult = await pool.query('SELECT "createdBy" FROM "evaluations" WHERE "id" = $1', [id]);
+    const evalId = isNaN(Number(id)) ? id : Number(id);
+    const evResult = await pool.query('SELECT "createdBy" FROM "evaluations" WHERE "id" = $1', [evalId]);
     if (evResult.rows.length === 0) return res.status(404).json({ error: 'Evaluation not found' });
 
-    if (req.user!.role !== 'superadmin' && evResult.rows[0].createdBy !== req.user!.id) {
+    if (req.user!.role !== 'superadmin' && req.user!.role !== 'admin' && evResult.rows[0].createdBy !== req.user!.id) {
       await logAudit(req.user!.id, req.user!.name, 'unauthorized_access', `Attempted to delete evaluation #${id}`);
       return res.status(403).json({ error: 'Not authorized to delete this evaluation' });
     }
 
     await transaction(async (client) => {
-      await client.query('DELETE FROM "criteria_scores" WHERE "evaluationId" = $1', [id]);
-      await client.query('DELETE FROM "peer_feedback" WHERE "evaluationId" = $1', [id]);
-      await client.query('DELETE FROM "evaluations" WHERE "id" = $1', [id]);
+      await client.query('DELETE FROM "criteria_scores" WHERE "evaluationId" = $1', [evalId]);
+      await client.query('DELETE FROM "peer_feedback" WHERE "evaluationId" = $1', [evalId]);
+      await client.query('DELETE FROM "evaluations" WHERE "id" = $1', [evalId]);
     });
 
     await logAudit(req.user!.id, req.user!.name, 'delete_evaluation', `Deleted evaluation #${id}`);
@@ -694,8 +758,12 @@ async function startServer() {
   await migrate();
   setupWebSocket();
 
+  // Serve static files from the public directory explicitly
+  app.use(express.static(path.join(process.cwd(), 'public')));
+
   if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
+    const { createServer } = await import('vite');
+    const vite = await createServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
@@ -712,9 +780,46 @@ async function startServer() {
     console.log(`Server running on http://localhost:${PORT}`);
     console.log(`WebSocket available at ws://localhost:${PORT}/ws`);
   });
+
+  if (process.env.GOOGLE_APPS_SCRIPT_URL) {
+    console.log('[Google Sheets] Automated background synchronization active. Polling spreadsheet every 60 seconds...');
+    setInterval(async () => {
+      try {
+        await syncFromGoogleSheets();
+        broadcast('employees:updated', {});
+        broadcast('evaluations:updated', {});
+        broadcast('users:updated', {});
+      } catch (err: any) {
+        console.error('[Google Sheets] Automatic background sync error:', err.message);
+      }
+    }, 60000);
+  }
 }
 
-startServer().catch((err) => {
-  console.error('Failed to start server:', err);
-  process.exit(1);
-});
+// Firebase Cloud Functions entry point. When running as a function we must NOT
+// create an HTTP listener (Firebase Hosting rewrites requests to us instead).
+export { app };
+
+let bootstrapPromise: Promise<void> | null = null;
+
+/**
+ * Returns the Express app, ensuring the database is migrated and synchronized
+ * from Google Sheets once before the first request is served. Memoized so a
+ * warm instance only pays the sync cost once.
+ */
+export async function getApp() {
+  if (!bootstrapPromise) {
+    bootstrapPromise = migrate().catch((err) => {
+      console.error('[Firebase] Database bootstrap failed:', err);
+    });
+  }
+  await bootstrapPromise;
+  return app;
+}
+
+if (process.env.FIREBASE_FUNCTIONS !== 'true') {
+  startServer().catch((err) => {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  });
+}

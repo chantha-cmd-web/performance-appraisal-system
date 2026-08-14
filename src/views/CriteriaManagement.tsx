@@ -273,13 +273,13 @@ export default function CriteriaManagement() {
               </div>
               <div className="space-y-4">
                 {(localConfig.types || []).map((t, i) => (
-                  <div key={t.id} className="flex items-center gap-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
-                    <div className="w-48 font-mono text-xs font-bold text-slate-400 dark:text-slate-500 p-2 bg-slate-50 dark:bg-slate-900 rounded-lg">{t.id}</div>
+                  <div key={t.id} className="flex flex-col sm:flex-row sm:items-center gap-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
+                    <div className="w-full sm:w-48 font-mono text-xs font-bold text-slate-400 dark:text-slate-500 p-2 bg-slate-50 dark:bg-slate-900 rounded-lg shrink-0">{t.id}</div>
                     <input 
                       className="flex-1 px-4 py-2 bg-transparent border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-900 dark:text-slate-100 placeholder-slate-400"
                       value={t.label} onChange={e => updateType(i, e.target.value)} placeholder="Type Name"
                     />
-                    <button onClick={() => deleteType(i)} className="p-2 text-red-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"><Trash2 size={18}/></button>
+                    <button onClick={() => deleteType(i)} className="p-2 text-red-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors self-end sm:self-auto"><Trash2 size={18}/></button>
                   </div>
                 ))}
               </div>
@@ -296,13 +296,13 @@ export default function CriteriaManagement() {
               </div>
               <div className="space-y-4">
                 {(localConfig.weightingSchemes || []).map((s, i) => (
-                  <div key={s.id} className="flex items-center gap-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
-                    <div className="w-48 font-mono text-xs font-bold text-slate-400 dark:text-slate-500 p-2 bg-slate-50 dark:bg-slate-900 rounded-lg">{s.id}</div>
+                  <div key={s.id} className="flex flex-col sm:flex-row sm:items-center gap-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
+                    <div className="w-full sm:w-48 font-mono text-xs font-bold text-slate-400 dark:text-slate-500 p-2 bg-slate-50 dark:bg-slate-900 rounded-lg shrink-0">{s.id}</div>
                     <input 
                       className="flex-1 px-4 py-2 bg-transparent border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-900 dark:text-slate-100 placeholder-slate-400"
                       value={s.label} onChange={e => updateWeighting(i, e.target.value)} placeholder="Scheme Label"
                     />
-                    <button onClick={() => deleteWeighting(i)} className="p-2 text-red-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"><Trash2 size={18}/></button>
+                    <button onClick={() => deleteWeighting(i)} className="p-2 text-red-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors self-end sm:self-auto"><Trash2 size={18}/></button>
                   </div>
                 ))}
               </div>

@@ -12,6 +12,9 @@ export default function Layout() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      return false;
+    }
     const saved = localStorage.getItem('sidebar_state');
     return saved !== null ? JSON.parse(saved) : true;
   });
@@ -20,12 +23,22 @@ export default function Layout() {
     localStorage.setItem('sidebar_state', JSON.stringify(isOpen));
   }, [isOpen]);
 
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const toggleSidebar = () => setIsOpen(!isOpen);
 
   if (!user) return null;
 
   return (
-    <div className="flex h-screen print:h-auto bg-slate-50 dark:bg-[#0a0e1a] font-sans text-slate-900 dark:text-slate-100">
+    <div className="flex min-h-dvh w-full print:h-auto bg-slate-50 dark:bg-[#0a0e1a] font-sans text-slate-900 dark:text-slate-100">
       {/* Mobile Overlay */}
       <AnimatePresence>
         {isOpen && (
@@ -53,13 +66,10 @@ export default function Layout() {
       >
         {/* Sidebar Header */}
         <div className="flex items-center justify-between p-6 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/30">
-              <span className="font-extrabold text-white text-sm tracking-tight">AP</span>
-            </div>
+          <div className="flex items-center gap-3 overflow-hidden">
             <div className={cn("flex flex-col whitespace-nowrap", !isOpen && "hidden")}>
-              <span className="font-bold tracking-tight text-[15px]">Performance</span>
-              <span className="text-[10px] font-semibold text-indigo-400 uppercase tracking-[0.2em]">System</span>
+              <span className="font-extrabold tracking-tight text-[16px] text-slate-100 leading-tight">Performance</span>
+              <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-[0.15em] leading-none mt-0.5">System</span>
             </div>
           </div>
           <button onClick={toggleSidebar} className="lg:hidden text-slate-400 hover:text-white transition-colors p-1.5 rounded-xl hover:bg-white/10">
@@ -72,8 +82,6 @@ export default function Layout() {
           <SidebarLink to="/dashboard" icon={<LayoutDashboard size={20} />} label="Dashboard" isOpen={isOpen} />
 
           <SidebarLink to="/self-evaluation" icon={<ClipboardCheck size={20} />} label="Self Evaluation" isOpen={isOpen} />
-
-          <SidebarLink to="/evaluation" icon={<FileEdit size={20} />} label="New Evaluation" isOpen={isOpen} />
 
           {user.role === 'superadmin' && (
             <>
@@ -138,9 +146,12 @@ export default function Layout() {
               >
                 <Menu size={18} />
               </button>
-              <div>
-                <div className="font-bold text-slate-800 dark:text-white tracking-tight text-[15px]">Annual Performance Dashboard</div>
-                <div className="font-medium text-slate-500 dark:text-slate-400 text-xs hidden sm:block">Staff Evaluation Management System • ប្រព័ន្ធគ្រប់គ្រងការវាយតម្លៃបុគ្គលិក</div>
+              <div className="flex items-center gap-3">
+                <img src="https://lh3.googleusercontent.com/d/1BedaCZHY2D8BflrgKy4-wDoTsTJ2eQ2F" alt="WIS Logo" className="h-9 w-auto object-contain block" referrerPolicy="no-referrer" />
+                <div>
+                  <div className="font-bold text-slate-800 dark:text-white tracking-tight text-[15px]">Annual Performance Dashboard</div>
+                  <div className="font-medium text-slate-500 dark:text-slate-400 text-xs hidden sm:block">Staff Evaluation Management System • ប្រព័ន្ធគ្រប់គ្រងការវាយតម្លៃបុគ្គលិក</div>
+                </div>
               </div>
             </div>
 
@@ -165,7 +176,7 @@ export default function Layout() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-auto print:overflow-visible p-6">
+        <div className="flex-1 overflow-auto print:overflow-visible p-4 sm:p-6">
           <div className="mx-auto max-w-7xl">
             <Outlet />
           </div>

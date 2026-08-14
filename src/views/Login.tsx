@@ -4,12 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { LogIn, User, Lock, Loader2, Moon, Sun, Shield } from 'lucide-react';
+import { LogIn, User, Lock, Loader2, Moon, Sun, Shield, Eye, EyeOff } from 'lucide-react';
 import React from 'react';
 
 export default function Login() {
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login, user } = useAuth();
@@ -25,11 +26,13 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    const cleanUserId = userId.trim().toLowerCase();
+    const cleanPassword = password.trim();
     try {
       const res = await apiFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, password }),
+        body: JSON.stringify({ userId: cleanUserId, password: cleanPassword }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed');
@@ -43,7 +46,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen min-h-dvh flex items-center justify-center relative overflow-hidden transition-colors duration-1000 px-4 py-8 sm:px-6 sm:py-12 bg-slate-100 dark:bg-[#0a0e1a]">
+    <div className="min-h-dvh w-full flex items-center justify-center relative overflow-y-auto py-8 px-4 xs:px-6 transition-colors duration-1000 bg-slate-100 dark:bg-[#0a0e1a]">
 
       {/* Theme Toggle */}
       <button
@@ -73,19 +76,18 @@ export default function Login() {
         />
       </div>
 
-      {/* Login Card */}
       <motion.div
         initial={{ opacity: 0, y: 30, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }}
-        className="relative z-10 w-full max-w-[400px] sm:max-w-[420px] p-7 sm:p-10 backdrop-blur-2xl border shadow-2xl rounded-3xl overflow-hidden transition-colors duration-1000 bg-white/60 dark:bg-white/[0.08] border-white/50 dark:border-white/[0.15] shadow-slate-200/50 dark:shadow-indigo-500/10"
+        className="relative z-10 w-full max-w-[450px] sm:max-w-[500px] p-6 xs:p-8 sm:p-12 flex flex-col justify-center backdrop-blur-2xl border border-slate-200/50 dark:border-white/[0.15] shadow-xl xs:shadow-2xl rounded-2xl xs:rounded-3xl overflow-hidden transition-colors duration-1000 bg-white/95 dark:bg-[#0d1222] sm:bg-white/60 sm:dark:bg-white/[0.08] shadow-slate-200/50 dark:shadow-indigo-500/10"
       >
         <div className="absolute inset-0 bg-gradient-to-br pointer-events-none from-white/40 to-white/10 dark:from-white/[0.08] dark:to-transparent" />
 
         {/* Header */}
         <div className="text-center mb-8 sm:mb-10 relative z-10">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-tr from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-5 shadow-lg shadow-indigo-500/30">
-            <Shield className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
+          <div className="flex items-center justify-center mx-auto mb-5 max-w-[280px]">
+            <img src="https://lh3.googleusercontent.com/d/1BedaCZHY2D8BflrgKy4-wDoTsTJ2eQ2F" alt="Western International School Logo" className="w-full h-auto object-contain" referrerPolicy="no-referrer" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
             Performance System
@@ -101,18 +103,21 @@ export default function Login() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6 relative z-10">
           <div>
-            <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
+            <label className="block text-lg sm:text-xl font-black mb-3 text-slate-800 dark:text-slate-200 uppercase tracking-wide">
               User ID
             </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 sm:pl-4 flex items-center pointer-events-none">
-                <User className="h-5 w-5 text-slate-400 dark:text-slate-500" />
+              <div className="absolute inset-y-0 left-0 pl-4 sm:pl-5 flex items-center pointer-events-none">
+                <User className="h-6 w-6 text-slate-500 dark:text-slate-400" />
               </div>
               <input
                 type="text"
                 required
                 autoComplete="username"
-                className="block w-full pl-11 pr-4 py-3 sm:py-3.5 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white/80 dark:bg-white/[0.06] border-slate-200 dark:border-white/[0.12] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm sm:text-base"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
+                className="login-input block w-full pl-14 pr-14 py-5 sm:py-6 border-3 border-slate-700 dark:border-white/20 rounded-2xl focus:outline-none focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all bg-white dark:bg-[#161c2e] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-xl sm:text-2xl font-black"
                 placeholder="Enter User ID"
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
@@ -121,30 +126,45 @@ export default function Login() {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">
+            <label className="block text-lg sm:text-xl font-black mb-3 text-slate-800 dark:text-slate-200 uppercase tracking-wide">
               Password
             </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 sm:pl-4 flex items-center pointer-events-none">
-                <Lock className="h-5 w-5 text-slate-400 dark:text-slate-500" />
+              <div className="absolute inset-y-0 left-0 pl-4 sm:pl-5 flex items-center pointer-events-none">
+                <Lock className="h-6 w-6 text-slate-500 dark:text-slate-400" />
               </div>
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 required
                 autoComplete="current-password"
-                className="block w-full pl-11 pr-4 py-3 sm:py-3.5 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white/80 dark:bg-white/[0.06] border-slate-200 dark:border-white/[0.12] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm sm:text-base"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
+                className="login-input block w-full pl-14 pr-14 py-5 sm:py-6 border-3 border-slate-700 dark:border-white/20 rounded-2xl focus:outline-none focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all bg-white dark:bg-[#161c2e] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-xl sm:text-2xl font-black"
                 placeholder="Enter Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-6 w-6" />
+                ) : (
+                  <Eye className="h-6 w-6" />
+                )}
+              </button>
             </div>
           </div>
 
-          {error && (
+           {error && (
             <motion.div
               initial={{ opacity: 0, y: -8, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm font-semibold bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 py-3 px-4 rounded-2xl"
+              className="flex items-center gap-2 text-red-600 dark:text-red-400 text-base sm:text-lg font-extrabold bg-red-50 dark:bg-red-500/10 border-2 border-red-200 dark:border-red-500/20 py-4 px-5 rounded-2xl"
             >
               <span className="shrink-0">⚠</span>
               <span>{error}</span>
@@ -154,13 +174,13 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex justify-center items-center gap-2 py-3.5 sm:py-4 px-4 border border-transparent rounded-2xl shadow-lg shadow-indigo-500/25 text-sm sm:text-base font-bold text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+            className="w-full flex justify-center items-center gap-3 py-5 sm:py-6 px-6 border border-transparent rounded-2xl shadow-lg shadow-indigo-500/25 text-xl sm:text-2xl font-black text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
           >
             {loading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-6 h-6 animate-spin" />
             ) : (
               <>
-                <LogIn className="w-5 h-5" />
+                <LogIn className="w-6 h-6" />
                 Sign In
               </>
             )}
