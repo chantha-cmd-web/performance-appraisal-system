@@ -361,11 +361,23 @@ export async function syncFromGoogleSheets() {
           }
         }
       }
+
+      // Ensure auto-provisioned accounts have a usable password.
+      // Only applies to employee / supervisor / supporter roles and only when
+      // the password is empty (empty passwords make the account unloginable).
+      const defaultPwds: Record<string, string> = { employee: 'emp@2026', supervisor: 'sup@2026', supporter: 'sup@2026' };
+      for (const u of finalUsers) {
+        const role = String(u.role || '').toLowerCase();
+        const defaultPwd = defaultPwds[role];
+        if (!defaultPwd) continue;
+        const hasPwd = u.password !== undefined && u.password !== null && String(u.password).trim() !== '';
+        if (!hasPwd) {
+          u.password = defaultPwd;
+        }
+      }
       
       inMemoryDb = mergedDb;
-      const dbStr = JSON.stringify(mergedDb, null, 2);
-      fs.writeFileSync(MOCK_DB_PATH, dbStr);
-      lastDbString = JSON.stringify(mergedDb);
+      writeMockDb(mergedDb);
       console.log('[Google Sheets] Synchronization complete! Synced tables:', Object.keys(sheetDb).filter(k => sheetDb[k] && sheetDb[k].length > 0).join(', ') || 'none (empty)');
     } else {
       console.warn('[Google Sheets] Synchronization response was not successful:', result?.error || result);
