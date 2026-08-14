@@ -362,16 +362,16 @@ export async function syncFromGoogleSheets() {
         }
       }
 
-      // Ensure auto-provisioned accounts have a usable password.
-      // Only applies to employee / supervisor / supporter roles and only when
-      // the password is empty (empty passwords make the account unloginable).
+      // Ensure auto-provisioned accounts have a usable password matching the
+      // system convention. Applies to employee / supervisor / supporter roles
+      // and repairs empty or legacy (admin123) passwords so accounts stay loginable.
       const defaultPwds: Record<string, string> = { employee: 'emp@2026', supervisor: 'sup@2026', supporter: 'sup@2026' };
       for (const u of finalUsers) {
         const role = String(u.role || '').toLowerCase();
         const defaultPwd = defaultPwds[role];
         if (!defaultPwd) continue;
-        const hasPwd = u.password !== undefined && u.password !== null && String(u.password).trim() !== '';
-        if (!hasPwd) {
+        const pwd = u.password !== undefined && u.password !== null ? String(u.password).trim() : '';
+        if (pwd === '' || pwd === 'admin123') {
           u.password = defaultPwd;
         }
       }
