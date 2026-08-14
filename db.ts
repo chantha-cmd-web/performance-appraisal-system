@@ -284,7 +284,9 @@ export async function syncFromGoogleSheets() {
             const camelKey = CAMEL_KEYS[lowerKey] || (lowerKey !== key ? key : lowerKey);
             let value = item[key];
             // Normalize ID fields to lowercase strings
-            if ((lowerKey === 'id' || lowerKey === 'userid' || lowerKey === 'employeeid' || lowerKey === 'supervisorid' || lowerKey === 'supporterid') && value !== undefined && value !== null) {
+            if ((lowerKey === 'id' || lowerKey === 'userid' || lowerKey === 'employeeid' || lowerKey === 'supervisorid' || lowerKey === 'supporterid'
+              || lowerKey === 'appraiser' || lowerKey === 'supporter' || lowerKey === 'createdby' || lowerKey === 'evaluationid' || lowerKey === 'criteriaid')
+              && value !== undefined && value !== null) {
               value = String(value).trim().toLowerCase();
             }
             // Normalize password to a string to avoid numeric parsing issues from Google Sheets
@@ -560,8 +562,11 @@ function executeMockQuery(sql: string, params: any[] = []): any[] {
     
     let evs = [...(db.evaluations || [])];
     if (lowerSql.includes('where "createdby" = $1') || lowerSql.includes('createdby = $1')) {
-      const id = params[0];
-      evs = evs.filter(e => e.createdBy === id || e.appraiser === id || e.supporter === id || e.employeeId === id);
+      const id = String(params[0] || '').trim().toLowerCase();
+      evs = evs.filter(e => String(e.createdBy || '').trim().toLowerCase() === id
+        || String(e.appraiser || '').trim().toLowerCase() === id
+        || String(e.supporter || '').trim().toLowerCase() === id
+        || String(e.employeeId || '').trim().toLowerCase() === id);
     }
     if (lowerSql.includes('order by "createdat" desc')) {
       evs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -763,13 +768,13 @@ function executeMockQuery(sql: string, params: any[] = []): any[] {
     if (idx >= 0) {
       db.evaluations[idx] = {
         ...db.evaluations[idx],
-        employeeId: params[0],
+        employeeId: String(params[0] || ''),
         employeeName: params[1],
         campus: params[2],
         department: params[3] || '',
         position: params[4],
-        appraiser: params[5],
-        supporter: params[6] || '',
+        appraiser: String(params[5] || ''),
+        supporter: String(params[6] || ''),
         reviewDate: params[7],
         weightScheme: params[8],
         evaluationType: params[9] || 'management',
@@ -833,9 +838,10 @@ function executeMockQuery(sql: string, params: any[] = []): any[] {
     }
 
     const newEval = {
-      id, employeeId, employeeName, campus, department, position, appraiser, supporter, reviewDate,
-      weightScheme, evaluationType, evalPeriod, totalSelf, totalSuper, overallScore, evaluatorComments,
-      status, createdBy, createdByName, createdAt
+      id, employeeId: String(employeeId || ''), employeeName, campus, department, position,
+      appraiser: String(appraiser || ''), supporter: String(supporter || ''),
+      reviewDate, weightScheme, evaluationType, evalPeriod, totalSelf, totalSuper, overallScore, evaluatorComments,
+      status, createdBy: String(createdBy || ''), createdByName, createdAt
     };
 
     db.evaluations = db.evaluations || [];

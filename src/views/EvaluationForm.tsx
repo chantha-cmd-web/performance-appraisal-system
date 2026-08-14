@@ -279,6 +279,7 @@ export default function EvaluationForm() {
   const canReject = canRejectEvaluation(user, { appraiser: formData.appraiser, supporter: formData.supporter, status: formData.status });
   const canReopen = canReopenEvaluation(user, { status: formData.status });
   const superadminEdit = isSuperAdmin(user) && !isViewOnly;
+  const canAct = canEditSelf || canEditSuper || canEditSupporter || canEditMgmt || canEditAsp || canReject || canReopen || superadminEdit;
 
   // ─── Status & Workflow ───
   const actingRole = useMemo(() => {
@@ -417,7 +418,7 @@ export default function EvaluationForm() {
               <Printer size={18} /> Export PDF
             </button>
           )}
-          {!isViewOnly && (!isCompleted || superadminEdit) && (
+          {!isViewOnly && canAct && (
             <>
               <button type="button" onClick={(e) => handleActionSubmit(e, 'save')} disabled={loading}
                 className="flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 glass-card rounded-2xl text-slate-700 dark:text-slate-300 font-bold text-sm transition-all active:scale-95 disabled:opacity-50">
@@ -668,7 +669,7 @@ export default function EvaluationForm() {
           )}
 
           {/* ─── RBAC Info Banner ─── */}
-          {editId && !isViewOnly && (!isCompleted || superadminEdit) && (
+          {editId && !isViewOnly && canAct && (
             <div className={cn(
               "mt-4 p-4 rounded-2xl border",
               superadminEdit && isCompleted
@@ -785,7 +786,7 @@ export default function EvaluationForm() {
             </div>
           </div>
         </div>
-        {!isViewOnly && (!isCompleted || superadminEdit) && (
+        {!isViewOnly && canAct && (
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <button type="button" onClick={(e) => handleActionSubmit(e, 'save')} disabled={loading}
               className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 glass-card rounded-2xl text-slate-700 dark:text-slate-300 font-bold text-sm transition-all active:scale-95 disabled:opacity-50">

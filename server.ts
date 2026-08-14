@@ -116,7 +116,11 @@ const requireSuperAdmin = (req: Request, res: Response, next: NextFunction) => {
 };
 
 const isRelatedToEvaluation = (user: any, ev: any): boolean => {
-  return ev.createdBy === user.id || ev.appraiser === user.id || ev.supporter === user.id || ev.employeeId === user.id;
+  const userId = String(user.id).trim().toLowerCase();
+  return String(ev.createdBy || '').trim().toLowerCase() === userId
+    || String(ev.appraiser || '').trim().toLowerCase() === userId
+    || String(ev.supporter || '').trim().toLowerCase() === userId
+    || String(ev.employeeId || '').trim().toLowerCase() === userId;
 };
 
 const logAudit = async (userId: string, userName: string, action: string, details: string) => {
@@ -539,7 +543,7 @@ app.post('/api/evaluations', authenticateToken, async (req, res) => {
     const createdBy = req.user!.id;
     const createdByName = req.user!.name;
 
-    if (req.user!.role !== 'superadmin' && data.employeeId !== req.user!.id && data.appraiser !== req.user!.id && data.supporter !== req.user!.id) {
+    if (req.user!.role !== 'superadmin' && String(data.employeeId) !== req.user!.id && String(data.appraiser) !== req.user!.id && String(data.supporter) !== req.user!.id) {
       await logAudit(req.user!.id, req.user!.name, 'unauthorized_access', `Attempted to create evaluation for employee ${data.employeeId}`);
       return res.status(403).json({ error: 'Access denied.' });
     }
@@ -549,8 +553,8 @@ app.post('/api/evaluations', authenticateToken, async (req, res) => {
         `INSERT INTO "evaluations" ("employeeId","employeeName","campus","department","position","appraiser","supporter","reviewDate","weightScheme","evaluationType","evalPeriod","totalSelf","totalSuper","overallScore","evaluatorComments","status","createdBy","createdByName")
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING "id"`,
         [
-          data.employeeId || '', data.employeeName || '', data.campus || '', data.department || '', data.position || '',
-          data.appraiser || '', data.supporter || '', data.reviewDate || '', data.weightScheme || '',
+          String(data.employeeId || ''), data.employeeName || '', data.campus || '', data.department || '', data.position || '',
+          String(data.appraiser || ''), String(data.supporter || ''), data.reviewDate || '', data.weightScheme || '',
           data.evaluationType || 'management', data.evalPeriod || '',
           data.totalSelf || 0, data.totalSuper || 0, data.overallScore || 0,
           data.evaluatorComments || '', data.status || 'Draft', createdBy || '', createdByName || ''
@@ -595,7 +599,11 @@ app.put('/api/evaluations/:id', authenticateToken, async (req, res) => {
     if (evResult.rows.length === 0) return res.status(404).json({ error: 'Evaluation not found' });
 
     const ev = evResult.rows[0];
-    if (req.user!.role !== 'superadmin' && ev.createdBy !== req.user!.id && ev.appraiser !== req.user!.id && ev.supporter !== req.user!.id && ev.employeeId !== req.user!.id) {
+    const isRelated = String(ev.createdBy || '') === req.user!.id
+      || String(ev.appraiser || '') === req.user!.id
+      || String(ev.supporter || '') === req.user!.id
+      || String(ev.employeeId || '') === req.user!.id;
+    if (req.user!.role !== 'superadmin' && !isRelated) {
       await logAudit(req.user!.id, req.user!.name, 'unauthorized_access', `Attempted to edit evaluation #${id}`);
       return res.status(403).json({ error: 'Not authorized to edit this evaluation' });
     }
@@ -609,8 +617,8 @@ app.put('/api/evaluations/:id', authenticateToken, async (req, res) => {
           "evaluatorComments"=$15,"status"=$16
          WHERE "id"=$17`,
         [
-          data.employeeId || '', data.employeeName || '', data.campus || '', data.department || '', data.position || '',
-          data.appraiser || '', data.supporter || '', data.reviewDate || '', data.weightScheme || '',
+          String(data.employeeId || ''), data.employeeName || '', data.campus || '', data.department || '', data.position || '',
+          String(data.appraiser || ''), String(data.supporter || ''), data.reviewDate || '', data.weightScheme || '',
           data.evaluationType || 'management', data.evalPeriod || '',
           data.totalSelf || 0, data.totalSuper || 0, data.overallScore || 0,
           data.evaluatorComments || '', data.status || 'Draft', evalId
