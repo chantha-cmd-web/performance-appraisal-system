@@ -54,9 +54,12 @@ export default function EvaluationForm() {
   const [criteriaScores, setCriteriaScores] = useState<CriteriaScore[]>([]);
   const [peerFeedbacks, setPeerFeedbacks] = useState<PeerFeedback[]>([]);
   const scoresLoadedFromServer = useRef(false);
+  // Tracks whether the user has unsaved edits. While dirty we skip realtime
+  // auto-refetches so a background sync/poll can never wipe typed scores.
+  const dirtyRef = useRef(false);
 
   useEffect(() => { if (editId) fetchEvaluation(); }, [editId]);
-  useRealtimeRefresh(['evaluations:updated', 'employees:updated', 'settings:updated'], () => { if (editId) fetchEvaluation(); });
+  useRealtimeRefresh(['evaluations:updated', 'employees:updated', 'settings:updated'], () => { if (editId && !dirtyRef.current) fetchEvaluation(); });
 
   const fetchEvaluation = async () => {
     try {
@@ -80,6 +83,7 @@ export default function EvaluationForm() {
         setCriteriaScores(loadedScores);
         scoresLoadedFromServer.current = loadedScores.length > 0;
         setPeerFeedbacks(data.peerFeedbacks || []);
+        dirtyRef.current = false;
       } else {
         alert('Evaluation not found');
         navigate('/dashboard');
@@ -177,17 +181,24 @@ export default function EvaluationForm() {
   }, [currentCriteria, editId, initialLoad]);
 
   const handleCriteriaChange = useCallback((idx: number, field: keyof CriteriaScore, val: string, maxScore: number = 10) => {
+    dirtyRef.current = true;
     const num = Math.min(maxScore, Math.max(0, parseFloat(val) || 0));
     setCriteriaScores(prev => prev.map((s, i) => i === idx ? { ...s, [field]: num } : s));
   }, []);
 
-  const addPeerFeedback = () => setPeerFeedbacks([...peerFeedbacks, { peerName: '', feedback: '', score: 0 }]);
+  const updateField = useCallback((key: keyof typeof formData, v: string) => {
+    dirtyRef.current = true;
+    setFormData(prev => ({ ...prev, [key]: v }));
+  }, []);
+
+  const addPeerFeedback = () => { dirtyRef.current = true; setPeerFeedbacks([...peerFeedbacks, { peerName: '', feedback: '', score: 0 }]); };
   const updatePeerFeedback = (idx: number, field: keyof PeerFeedback, val: string | number) => {
+    dirtyRef.current = true;
     const newFb = [...peerFeedbacks];
     newFb[idx] = { ...newFb[idx], [field]: val };
     setPeerFeedbacks(newFb);
   };
-  const removePeerFeedback = (idx: number) => setPeerFeedbacks(peerFeedbacks.filter((_, i) => i !== idx));
+  const removePeerFeedback = (idx: number) => { dirtyRef.current = true; setPeerFeedbacks(peerFeedbacks.filter((_, i) => i !== idx)); };
 
   // ─── Column Visibility ───
   const cols = getVisibleColumns(formData.weightScheme);
@@ -265,6 +276,7 @@ export default function EvaluationForm() {
             weightScheme: resolvedWeightScheme, evalPeriod: emp.evalPeriod || prev.evalPeriod,
             evaluationType: emp.category || prev.evaluationType || 'management'
           }));
+          dirtyRef.current = true;
         }
       }
     } catch (err) { console.error("Failed to fetch employee", err); }
@@ -338,6 +350,7 @@ export default function EvaluationForm() {
       } else {
         toast.success('Evaluation submitted successfully / បានដាក់ស្នើដោយជោគជ័យ');
       }
+      dirtyRef.current = false;
 
       navigate('/dashboard');
     } catch (err: any) {
@@ -484,16 +497,16 @@ export default function EvaluationForm() {
             <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Employee Information</span>
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            <Input disabled={isViewOnly} label={<>Employee ID / លេខសម្គាល់</>} value={formData.employeeId} onChange={v => setFormData({...formData, employeeId: v})} onBlur={() => fetchEmployeeData(formData.employeeId)} required />
-            <Input disabled={isViewOnly} label={<>Employee Name / ឈ្មោះ</>} value={formData.employeeName} onChange={v => setFormData({...formData, employeeName: v})} required />
-            <Input disabled={isViewOnly} label={<>Campus / សាខា</>} value={formData.campus} onChange={v => setFormData({...formData, campus: v})} required />
-            <Input disabled={isViewOnly} label={<>Department / ផ្នែក</>} value={formData.department} onChange={v => setFormData({...formData, department: v})} required />
-            <Input disabled={isViewOnly} label={<>Position / តួនាទី</>} value={formData.position} onChange={v => setFormData({...formData, position: v})} required />
-            <Input disabled={isViewOnly} label={<>Category / ប្រភេទ</>} value={formData.category} onChange={v => setFormData({...formData, category: v})} />
-            <Input disabled={isViewOnly} label={<>Supervisor / អ្នកវាយតម្លៃ</>} value={formData.appraiser} onChange={v => setFormData({...formData, appraiser: v})} required />
-            <Input disabled={isViewOnly} label={<>Supporter / អ្នកគាំទ្រ</>} value={formData.supporter} onChange={v => setFormData({...formData, supporter: v})} />
-            <Input disabled={isViewOnly} label={<>Eval Period / វដ្ត</>} value={formData.evalPeriod} onChange={v => setFormData({...formData, evalPeriod: v})} />
-            <Input disabled={isViewOnly} label={<>Review Date / កាលបរិច្ឆេទ</>} type="date" value={formData.reviewDate} onChange={v => setFormData({...formData, reviewDate: v})} required />
+            <Input disabled={isViewOnly} label={<>Employee ID / លេខសម្គាល់</>} value={formData.employeeId} onChange={v => updateField('employeeId', v)} onBlur={() => fetchEmployeeData(formData.employeeId)} required />
+            <Input disabled={isViewOnly} label={<>Employee Name / ឈ្មោះ</>} value={formData.employeeName} onChange={v => updateField('employeeName', v)} required />
+            <Input disabled={isViewOnly} label={<>Campus / សាខា</>} value={formData.campus} onChange={v => updateField('campus', v)} required />
+            <Input disabled={isViewOnly} label={<>Department / ផ្នែក</>} value={formData.department} onChange={v => updateField('department', v)} required />
+            <Input disabled={isViewOnly} label={<>Position / តួនាទី</>} value={formData.position} onChange={v => updateField('position', v)} required />
+            <Input disabled={isViewOnly} label={<>Category / ប្រភេទ</>} value={formData.category} onChange={v => updateField('category', v)} />
+            <Input disabled={isViewOnly} label={<>Supervisor / អ្នកវាយតម្លៃ</>} value={formData.appraiser} onChange={v => updateField('appraiser', v)} required />
+            <Input disabled={isViewOnly} label={<>Supporter / អ្នកគាំទ្រ</>} value={formData.supporter} onChange={v => updateField('supporter', v)} />
+            <Input disabled={isViewOnly} label={<>Eval Period / វដ្ត</>} value={formData.evalPeriod} onChange={v => updateField('evalPeriod', v)} />
+            <Input disabled={isViewOnly} label={<>Review Date / កាលបរិច្ឆេទ</>} type="date" value={formData.reviewDate} onChange={v => updateField('reviewDate', v)} required />
 
             <div>
               <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Weighting Scheme / របៀបគណនា</label>
@@ -815,7 +828,7 @@ export default function EvaluationForm() {
           className="w-full px-4 py-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.1] bg-white/60 dark:bg-white/[0.04] text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none font-medium text-sm disabled:opacity-60"
           rows={4}
           value={formData.evaluatorComments}
-          onChange={e => setFormData({...formData, evaluatorComments: e.target.value})}
+          onChange={e => updateField('evaluatorComments', e.target.value)}
           placeholder="Enter evaluator comments here..."
         />
       </div>
