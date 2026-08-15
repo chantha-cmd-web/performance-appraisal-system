@@ -119,17 +119,18 @@ export function canEvaluate(ev: Evaluation, user: User | null): boolean {
 }
 
 // ─── EvaluationForm Section Editing Permissions ───
-// Superadmin/Admin can edit ALL sections. Employee can edit self-eval only during Draft/Self Eval Pending.
-// Supervisor can edit supervisor section only during "Waiting for Supervisor" or "Waiting for Reviews".
-// Supporter can edit supporter section only during "Waiting for Supporter" or "Waiting for Reviews".
+// The employee score (self column) comes ONLY from the employee themselves.
+// The assigned supervisor fills the supervisor column and the assigned
+// supporter fills the supporter column — nobody else (including plain admins)
+// may write another evaluator's score. Superadmin keeps an explicit override.
 export function canEditSelfEval(
   user: User | null,
   evalData: { employeeId: string; status: string },
   isViewOnly: boolean
 ): boolean {
   if (isViewOnly) return false;
-  // Admin has full access to everything
-  if (isAdmin(user)) return true;
+  // Superadmin retains an explicit override for corrections.
+  if (isSuperAdmin(user)) return true;
   // Self-eval is only editable by the employee themselves, during Draft, Self Eval Pending, or Returned
   const employeeId = String(evalData.employeeId || '').trim().toLowerCase();
   const userId = String(user?.id || '').trim().toLowerCase();

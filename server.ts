@@ -612,12 +612,12 @@ app.put('/api/evaluations/:id', authenticateToken, async (req, res) => {
 
     // ─── Column-level protection ───
     // Each score column may only be written by the evaluator assigned to it:
+    //   self column        → only the employee themselves (or superadmin override)
     //   supervisor column  → only the assigned appraiser (or superadmin override)
     //   supporter column   → only the assigned supporter (or superadmin override)
-    //   self column        → only the employee, admins, or superadmin
     //   management / asp   → only admins / superadmin
     // Unauthorized columns keep their existing spreadsheet value, so an
-    // employee or admin can never change the supervisor's score via the API.
+    // employee or admin can never change another evaluator's score via the API.
     const userId = String(req.user!.id || '').trim().toLowerCase();
     const isSuperAdmin = req.user!.role === 'superadmin';
     const isAdminRole = req.user!.role === 'superadmin' || req.user!.role === 'admin';
@@ -625,7 +625,7 @@ app.put('/api/evaluations/:id', authenticateToken, async (req, res) => {
     const isAssignedSupporter = String(ev.supporter || '').trim().toLowerCase() === userId;
     const isAssignedEmployee = String(ev.employeeId || '').trim().toLowerCase() === userId;
 
-    const canWriteSelf = isSuperAdmin || isAdminRole || isAssignedEmployee;
+    const canWriteSelf = isSuperAdmin || isAssignedEmployee;
     const canWriteSuper = isSuperAdmin || isAssignedSupervisor;
     const canWriteSupporter = isSuperAdmin || isAssignedSupporter;
     const canWriteMgmt = isAdminRole;
