@@ -154,9 +154,9 @@ export default function EvaluationForm() {
       // Scores were already loaded from server for an existing evaluation.
       // Only remap if criteria count changed (e.g., config updated), preserving existing scores.
       if (currentCriteria.length > 0 && criteriaScores.length > 0 && currentCriteria.length !== criteriaScores.length) {
-        const scoreMap = new Map(criteriaScores.map(s => [s.criteriaId, s]));
+        const scoreMap = new Map(criteriaScores.map(s => [String(s.criteriaId), s]));
         setCriteriaScores(currentCriteria.map(c => {
-          const existing = scoreMap.get(c.id);
+          const existing = scoreMap.get(String(c.id));
           return existing || {
             criteriaId: c.id, selfScore: 0, superScore: 0, supporterScore: 0, managementScore: 0, aspScore: 0
           };
@@ -170,9 +170,9 @@ export default function EvaluationForm() {
         criteriaId: c.id, selfScore: 0, superScore: 0, supporterScore: 0, managementScore: 0, aspScore: 0
       })));
     } else if (editId && currentCriteria.length > 0 && criteriaScores.length > 0 && currentCriteria.length !== criteriaScores.length) {
-      const scoreMap = new Map(criteriaScores.map(s => [s.criteriaId, s]));
+      const scoreMap = new Map(criteriaScores.map(s => [String(s.criteriaId), s]));
       setCriteriaScores(currentCriteria.map(c => {
-        const existing = scoreMap.get(c.id);
+        const existing = scoreMap.get(String(c.id));
         return existing || {
           criteriaId: c.id, selfScore: 0, superScore: 0, supporterScore: 0, managementScore: 0, aspScore: 0
         };
@@ -217,18 +217,26 @@ export default function EvaluationForm() {
     : 0;
 
   // ─── Section Info for Weighted Calculation ───
+  // Some position form configs use flat criteria lists with NO sections.
+  // In that case we treat every criterion as one implicit "Overall" section so
+  // the weighted self/supervisor/supporter totals still calculate and display.
   const activeSections = useMemo(() => {
     if (!positionFormConfig) return [];
-    return positionFormConfig.sections
+    const secs = positionFormConfig.sections
       .filter(s => s.status === 'active')
       .sort((a, b) => a.displayOrder - b.displayOrder);
-  }, [positionFormConfig]);
+    if (secs.length === 0 && currentCriteria.length > 0) {
+      return [{ id: '__all__', name: 'Overall', khName: 'Overall', weight: 100, displayOrder: 0, status: 'active' }];
+    }
+    return secs;
+  }, [positionFormConfig, currentCriteria]);
 
   const sectionInfo: SectionInfo | undefined = useMemo(() => {
     if (activeSections.length === 0 || currentCriteria.length === 0) return undefined;
+    const firstSectionId = activeSections[0].id;
     return {
       sections: activeSections,
-      criteria: currentCriteria.map(c => ({ id: c.id, sectionId: (c as any).sectionId, max: c.max || 10 })),
+      criteria: currentCriteria.map(c => ({ id: c.id, sectionId: (c as any).sectionId || firstSectionId, max: c.max || 10 })),
       criteriaScores,
     };
   }, [activeSections, currentCriteria, criteriaScores]);

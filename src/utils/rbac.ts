@@ -235,7 +235,7 @@ export function computeSectionWeightedScore(
     if (sectionMax === 0) continue;
 
     const sectionSum = criteriaScores
-      .filter(cs => sectionCriteria.some(c => c.id === cs.criteriaId))
+      .filter(cs => sectionCriteria.some(c => String(c.id) === String(cs.criteriaId)))
       .reduce((sum, cs) => sum + ((cs as any)[evaluatorColumn] || 0), 0);
 
     const sectionPct = (sectionSum / sectionMax) * 100;
@@ -258,7 +258,7 @@ export function computeSectionSubtotals(
     const sectionCriteria = criteria.filter(c => c.sectionId === section.id);
     const sectionMax = sectionCriteria.reduce((sum, c) => sum + (c.max || 10), 0);
     const sectionSum = criteriaScores
-      .filter(cs => sectionCriteria.some(c => c.id === cs.criteriaId))
+      .filter(cs => sectionCriteria.some(c => String(c.id) === String(cs.criteriaId)))
       .reduce((sum, cs) => sum + ((cs as any)[evaluatorColumn] || 0), 0);
     const sectionPct = sectionMax > 0 ? (sectionSum / sectionMax) * 100 : 0;
     return {

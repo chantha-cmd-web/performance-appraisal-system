@@ -23,11 +23,17 @@ function getWeightLabel(scheme: string) {
 function recalcOverallScore(ev: Evaluation, positionFormConfig?: PositionFormConfig | null): number {
   const sections = positionFormConfig?.sections?.filter(s => s.status === 'active') || [];
   const criteria = positionFormConfig?.criteria?.filter(c => c.status === 'active') || [];
-  if (sections.length === 0 || criteria.length === 0) return ev.overallScore;
+  if (criteria.length === 0) return ev.overallScore;
+
+  // Flat configs (no sections) are treated as one implicit "Overall" section.
+  const groupedSections = sections.length > 0
+    ? sections
+    : [{ id: '__all__', name: 'Overall', khName: 'Overall', weight: 100, displayOrder: 0, status: 'active' }];
+  const firstSectionId = groupedSections[0].id;
 
   const sectionInfo: SectionInfo = {
-    sections,
-    criteria: criteria.map(c => ({ id: c.id, sectionId: c.sectionId, max: c.max || 10 })),
+    sections: groupedSections,
+    criteria: criteria.map(c => ({ id: c.id, sectionId: c.sectionId || firstSectionId, max: c.max || 10 })),
     criteriaScores: ev.criteriaScores || [],
   };
 
@@ -58,10 +64,18 @@ function buildBodyContent(data: PdfReportData, pageNum: number): string {
     ?.filter(c => c.status === 'active')
     ?.sort((a, b) => a.displayOrder - b.displayOrder) || [];
 
-  const sectionData = sections.map(sec => {
-    const secCriteria = criteria.filter(c => c.sectionId === sec.id);
+  // Flat configs (no sections) are rendered as one implicit "Overall" section so
+  // every criterion and its scores still appear in the report.
+  const groupedSections = sections.length > 0
+    ? sections
+    : [{ id: '__all__', name: 'Overall', khName: 'Overall', weight: 100, displayOrder: 0, status: 'active' }];
+
+  const sectionData = groupedSections.map(sec => {
+    const secCriteria = sec.id === '__all__'
+      ? criteria
+      : criteria.filter(c => c.sectionId === sec.id);
     const secScores = secCriteria.map(c => {
-      const cs = (ev.criteriaScores || []).find(s => s.criteriaId === c.id);
+      const cs = (ev.criteriaScores || []).find(s => String(s.criteriaId) === String(c.id));
       return { criterion: c, score: cs };
     });
     const totalSelf = secScores.reduce((s, x) => s + (x.score?.selfScore || 0), 0);
