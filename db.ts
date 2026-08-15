@@ -42,10 +42,19 @@ const IS_FUNCTION_ENV =
   !!process.env.K_SERVICE;
 const MOCK_DB_PATH = path.join(IS_FUNCTION_ENV ? os.tmpdir() : process.cwd(), 'db.json');
 
-// Tracks in-flight Google Sheets saves so the API can await them before
-// responding. Without this, Cloud Functions may freeze the instance before a
-// fire-and-forget save completes, losing writes to the spreadsheet.
-const pendingSheetSaves: Promise<void>[] = [];
+// Google Sheets writes are coalesced per table. Consecutive mutations to the
+// same table collapse into a single Apps Script call (which writes the whole
+// table in one atomic setValues), so a burst of requests only costs one sheet
+// round-trip per table instead of one per request.
+const LOW_PRIORITY_TABLES = new Set(['audit_logs', 'notifications']);
+
+// Tables that were modified locally but not yet flushed to the spreadsheet.
+const dirtyTables = new Set<string>();
+
+// In-flight flush per table so concurrent writers share one request at a time.
+const tableFlushes = new Map<string, Promise<void>>();
+
+let flushScheduled = false;
 
 function sheetFetch(url: string, options: RequestInit, timeoutMs = 25000): Promise<Response> {
   const controller = new AbortController();
@@ -56,13 +65,70 @@ function sheetFetch(url: string, options: RequestInit, timeoutMs = 25000): Promi
 }
 
 /**
- * Waits until every queued Google Sheets write has finished. Call this before
- * sending a response so the spreadsheet always receives the data.
+ * Marks a table as dirty and schedules a background flush. The flush is
+ * debounced so several rapid writes share one spreadsheet call per table.
  */
-export async function flushGoogleSheets() {
-  while (pendingSheetSaves.length > 0) {
-    const batch = pendingSheetSaves.splice(0, pendingSheetSaves.length);
-    await Promise.all(batch.map((p) => p.catch(() => {})));
+function scheduleTableSave(tableName: string) {
+  dirtyTables.add(tableName);
+  if (flushScheduled) return;
+  flushScheduled = true;
+  setTimeout(() => {
+    flushScheduled = false;
+    [...dirtyTables].forEach((t) => flushTableOnce(t));
+  }, 50);
+}
+
+/**
+ * Flushes a single table, re-sending if it was modified again while the
+ * previous send was in flight, so no write is ever lost.
+ */
+function flushTableOnce(tableName: string): Promise<void> {
+  let p = tableFlushes.get(tableName);
+  if (!p) {
+    p = (async () => {
+      while (dirtyTables.has(tableName)) {
+        dirtyTables.delete(tableName);
+        await saveTableToGoogleSheets(tableName);
+      }
+    })().finally(() => {
+      tableFlushes.delete(tableName);
+    });
+    tableFlushes.set(tableName, p);
+  }
+  return p;
+}
+
+/**
+ * Waits until every queued Google Sheets write has finished. Call this before
+ * reading the spreadsheet so a half-written table is never mistaken for real
+ * data.
+ *
+ * When `opts.criticalOnly` is true, append-only bookkeeping tables
+ * (audit_logs / notifications) are skipped so responses don't stall on them.
+ */
+export async function flushGoogleSheets(opts?: { criticalOnly?: boolean }) {
+  const deadline = Date.now() + 15000;
+  while (true) {
+    if (flushScheduled) {
+      flushScheduled = false;
+      [...dirtyTables].forEach((t) => flushTableOnce(t));
+    }
+
+    let pending = [...tableFlushes.entries()];
+    if (opts?.criticalOnly) {
+      pending = pending.filter(([table]) => !LOW_PRIORITY_TABLES.has(table));
+    }
+
+    const hasCriticalDirty = opts?.criticalOnly
+      ? [...dirtyTables].some((t) => !LOW_PRIORITY_TABLES.has(t))
+      : dirtyTables.size > 0;
+
+    if (pending.length === 0 && !hasCriticalDirty) break;
+
+    await Promise.all(pending.map(([, p]) => p.catch(() => {})));
+
+    // Safety cap so a stuck spreadsheet never hangs the response forever.
+    if (Date.now() > deadline) break;
   }
 }
 
@@ -233,7 +299,7 @@ export async function syncFromGoogleSheets() {
     // Avoid reading the sheet while a write is still in flight. A half-written
     // table (e.g. headers cleared but rows not yet written) would be mistaken
     // for real data and corrupt the in-memory DB. Wait for pending saves first.
-    if (pendingSheetSaves.length > 0) {
+    if (dirtyTables.size > 0 || tableFlushes.size > 0) {
       await flushGoogleSheets();
     }
 
@@ -393,7 +459,7 @@ export async function syncFromGoogleSheets() {
       }
       
       inMemoryDb = mergedDb;
-      writeMockDb(mergedDb);
+      writeMockDb(mergedDb, { fromSync: true });
       console.log('[Google Sheets] Synchronization complete! Synced tables:', Object.keys(sheetDb).filter(k => sheetDb[k] && sheetDb[k].length > 0).join(', ') || 'none (empty)');
     } else {
       console.warn('[Google Sheets] Synchronization response was not successful:', result?.error || result);
@@ -405,52 +471,49 @@ export async function syncFromGoogleSheets() {
 
 export async function saveTableToGoogleSheets(tableName: string) {
   if (!APPS_SCRIPT_URL) return;
-  
-  const savePromise = (async () => {
+  try {
+    const db = readMockDb();
+    const tableData = db[tableName as keyof MockDb] || [];
+
+    const res = await sheetFetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        secret: APPS_SCRIPT_SECRET,
+        action: 'saveTable',
+        tableName: tableName,
+        tableData: tableData
+      })
+    });
+    const text = await res.text();
+    let result: any;
     try {
-      const db = readMockDb();
-      const tableData = db[tableName as keyof MockDb] || [];
-      
-      const res = await sheetFetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          secret: APPS_SCRIPT_SECRET,
-          action: 'saveTable',
-          tableName: tableName,
-          tableData: tableData
-        })
-      });
-      const text = await res.text();
-      let result: any;
-      try {
-        result = JSON.parse(text);
-      } catch (parseErr) {
-        console.warn(`[Google Sheets] Received a non-JSON (HTML/Text) response from Google Sheets during update of table ${tableName}. Response starts with:`, text.slice(0, 150));
-        return;
-      }
-
-      if (result && result.success) {
-        console.log(`[Google Sheets] Table ${tableName} synced successfully. Rows: ${tableData.length}`);
-      } else {
-        console.error(`[Google Sheets] Failed to sync table ${tableName}:`, result?.error || result);
-      }
-    } catch (err: any) {
-      console.error(`[Google Sheets] Error sending table ${tableName} to Google Sheets:`, err.message);
+      result = JSON.parse(text);
+    } catch (parseErr) {
+      console.warn(`[Google Sheets] Received a non-JSON (HTML/Text) response from Google Sheets during update of table ${tableName}. Response starts with:`, text.slice(0, 150));
+      return;
     }
-  })();
 
-  pendingSheetSaves.push(savePromise);
-  return savePromise;
+    if (result && result.success) {
+      console.log(`[Google Sheets] Table ${tableName} synced successfully. Rows: ${tableData.length}`);
+    } else {
+      console.error(`[Google Sheets] Failed to sync table ${tableName}:`, result?.error || result);
+    }
+  } catch (err: any) {
+    console.error(`[Google Sheets] Error sending table ${tableName} to Google Sheets:`, err.message);
+  }
 }
 
-function writeMockDb(db: MockDb) {
+function writeMockDb(db: MockDb, opts?: { fromSync?: boolean }) {
   try {
     inMemoryDb = db;
     const dbStr = JSON.stringify(db);
     fs.writeFileSync(MOCK_DB_PATH, JSON.stringify(db, null, 2), 'utf8');
     
-    if (APPS_SCRIPT_URL) {
+    // When this state came straight from the spreadsheet (a sync), don't echo
+    // it back — that used to re-upload every table after each sync (and after
+    // every cold start), adding seconds of Apps Script round-trips per cycle.
+    if (APPS_SCRIPT_URL && !opts?.fromSync) {
       // Determine which tables changed by comparing with our last synchronized state
       const tables: (keyof MockDb)[] = [
         'users',
@@ -473,7 +536,7 @@ function writeMockDb(db: MockDb) {
         const lastData = parsedLast ? parsedLast[table] : null;
         
         if (!lastData || JSON.stringify(currentData) !== JSON.stringify(lastData)) {
-          saveTableToGoogleSheets(table);
+          scheduleTableSave(table);
         }
       }
     }

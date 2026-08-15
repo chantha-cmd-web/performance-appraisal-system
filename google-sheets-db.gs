@@ -49,7 +49,8 @@ function doPost(e) {
       return makeJsonResponse({ error: "Unauthorized: Invalid secret token" }, 401);
     }
     
-    // Auto-initialize spreadsheets if needed
+    // Auto-initialize spreadsheets if needed (cached so we only pay the
+    // spreadsheet lookups on the very first request)
     initSheets();
     
     var action = postData.action;
@@ -73,9 +74,6 @@ function doPost(e) {
       }
       
       writeSheetData(tableName, tableData, SCHEMAS[tableName]);
-      
-      // Perform automated logging of the database write
-      logDbAction(postData.user || "system", "save_table", "Synchronized table: " + tableName + " (" + tableData.length + " rows)");
       
       return makeJsonResponse({ success: true, message: "Table synchronized successfully" });
     }
@@ -129,9 +127,15 @@ function validateTableData(tableName, data) {
 }
 
 /**
- * Initialize all database sheets with headers
+ * Initialize all database sheets with headers. Results are cached in script
+ * properties so the 8 spreadsheet lookups only run once, not on every request.
  */
 function initSheets() {
+  try {
+    if (ScriptProperties.getProperty("sheetsInitialized") === "1") return;
+  } catch (e) {
+    // PropertiesService unavailable (rare) - just run the check anyway
+  }
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   for (var tableName in SCHEMAS) {
     var sheet = ss.getSheetByName(tableName);
@@ -143,6 +147,9 @@ function initSheets() {
       sheet.setFrozenRows(1);
     }
   }
+  try {
+    ScriptProperties.setProperty("sheetsInitialized", "1");
+  } catch (e) {}
 }
 
 /**

@@ -135,15 +135,17 @@ const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// Wait for pending Google Sheets writes before sending a response. This keeps
-// the spreadsheet up to date even when running inside Cloud Functions, where an
-// instance can be frozen as soon as the response is sent.
+// Flush Google Sheets writes in the background on long-running servers (Render,
+// local dev). On mutating requests we await only the critical tables so the
+// response is fast; append-only bookkeeping (audit_logs/notifications) syncs in
+// the background and never stalls the user. Cloud Functions are handled the
+// same way via getApp/flushGoogleSheets in the deployment wrapper.
 app.use((req: Request, res: Response, next: NextFunction) => {
   const originalJson = res.json.bind(res);
   res.json = ((body: any) => {
     const send = () => originalJson(body);
-    if (process.env.GOOGLE_APPS_SCRIPT_URL) {
-      flushGoogleSheets().then(send, send);
+    if (process.env.GOOGLE_APPS_SCRIPT_URL && req.method !== 'GET' && req.method !== 'OPTIONS') {
+      flushGoogleSheets({ criticalOnly: true }).then(send, send);
     } else {
       send();
     }
