@@ -137,30 +137,34 @@ export function canEditSelfEval(
   return false;
 }
 
-// Supervisor section: admin can always edit; assigned appraiser can edit during "Waiting for Supervisor" or "Waiting for Reviews"
+// Supervisor section: ONLY the assigned appraiser — the supervisor the employee
+// selected on their profile (employee ID → supervisorId → appraiser) — can edit,
+// and only during "Waiting for Supervisor" or "Waiting for Reviews". Plain
+// admins and employees are NOT allowed to fill in the supervisor's score.
 export function canEditSupervisorSection(
   user: User | null,
   evalData: { appraiser: string; status: string },
   isViewOnly: boolean
 ): boolean {
   if (isViewOnly) return false;
-  // Admin has full access
-  if (isAdmin(user)) return true;
+  // Superadmin retains an explicit override for corrections.
+  if (isSuperAdmin(user)) return true;
   const appraiserId = String(evalData.appraiser || '').trim().toLowerCase();
   const userId = String(user?.id || '').trim().toLowerCase();
   if (appraiserId === userId && (evalData.status === 'Waiting for Supervisor' || evalData.status === 'Waiting for Reviews')) return true;
   return false;
 }
 
-// Supporter section: admin can always edit; assigned supporter can edit during "Waiting for Supporter" or "Waiting for Reviews"
+// Supporter section: ONLY the assigned supporter can edit, during "Waiting for
+// Supporter" or "Waiting for Reviews". Admins/employees cannot fill it.
 export function canEditSupporterSection(
   user: User | null,
   evalData: { supporter: string; status: string },
   isViewOnly: boolean
 ): boolean {
   if (isViewOnly) return false;
-  // Admin has full access
-  if (isAdmin(user)) return true;
+  // Superadmin retains an explicit override for corrections.
+  if (isSuperAdmin(user)) return true;
   const supporterId = String(evalData.supporter || '').trim().toLowerCase();
   const userId = String(user?.id || '').trim().toLowerCase();
   if (supporterId === userId && (evalData.status === 'Waiting for Supporter' || evalData.status === 'Waiting for Reviews')) return true;

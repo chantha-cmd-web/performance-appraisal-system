@@ -46,7 +46,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-dvh w-full flex items-center justify-center relative overflow-y-auto py-8 px-4 xs:px-6 transition-colors duration-1000 bg-slate-100 dark:bg-[#0a0e1a]">
+    <div className="min-h-dvh w-full flex flex-col relative overflow-y-auto py-8 px-4 xs:px-6 transition-colors duration-1000 bg-gradient-to-br from-indigo-100 via-sky-50 to-purple-200 dark:from-[#0a0e1a] dark:via-[#121a36] dark:to-[#2a1e54]">
 
       {/* Theme Toggle */}
       <button
@@ -80,7 +80,7 @@ export default function Login() {
         initial={{ opacity: 0, y: 30, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }}
-        className="relative z-10 w-full max-w-[450px] sm:max-w-[500px] p-6 xs:p-8 sm:p-12 flex flex-col justify-center backdrop-blur-2xl border border-slate-200/50 dark:border-white/[0.15] shadow-xl xs:shadow-2xl rounded-2xl xs:rounded-3xl overflow-hidden transition-colors duration-1000 bg-white/95 dark:bg-[#0d1222] sm:bg-white/60 sm:dark:bg-white/[0.08] shadow-slate-200/50 dark:shadow-indigo-500/10"
+        className="relative z-10 w-full max-w-[450px] sm:max-w-[500px] my-auto mx-auto p-6 xs:p-8 sm:p-12 flex flex-col justify-center backdrop-blur-2xl border border-slate-200/50 dark:border-white/[0.15] shadow-xl xs:shadow-2xl rounded-2xl xs:rounded-3xl overflow-hidden transition-colors duration-1000 bg-white/95 dark:bg-[#0d1222] sm:bg-white/60 sm:dark:bg-white/[0.08] shadow-slate-200/50 dark:shadow-indigo-500/10"
       >
         <div className="absolute inset-0 bg-gradient-to-br pointer-events-none from-white/40 to-white/10 dark:from-white/[0.08] dark:to-transparent" />
 

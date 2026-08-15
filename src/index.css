@@ -27,18 +27,19 @@
 html, body {
   margin: 0;
   padding: 0;
-  width: 100vw;
+  width: 100%;
   height: 100vh;
   height: 100dvh;
   background-color: var(--bg-main);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   color: var(--text-main);
-  font-size: 24px;
+  font-size: 16px;
   overflow: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 #root {
-  width: 100vw;
+  width: 100%;
   height: 100vh;
   height: 100dvh;
   display: flex;
@@ -48,49 +49,21 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 
-.card {
-  background: #ffffff;
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
-  padding: 10px;
-  margin: 0;
-  border-radius: 0;
-  box-shadow: none;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
-}
-
+/* Desktop/tablet: let the app shell fill the screen and scroll naturally.
+   No legacy centering — the app owns its own full-screen layout. */
 @media (min-width: 768px) {
   html, body {
     overflow: auto;
     height: auto;
-    min-height: 100vh;
+    min-height: 100dvh;
   }
   body {
     background-color: #f0f4f8;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 40px 20px;
   }
   #root {
     width: 100%;
     height: auto;
-    min-height: auto;
-    overflow: visible;
-  }
-  .card {
-    width: 100%;
-    max-width: 800px;
-    height: auto;
-    min-height: auto;
-    border-radius: 24px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    padding: 40px;
+    min-height: 100dvh;
     overflow: visible;
   }
 }
@@ -493,38 +466,40 @@ textarea {
   }
 }
 
-/* Mobile First & Responsive Ranges */
+/* Mobile First & Responsive Ranges
+   Base font stays at 16px on every screen so Tailwind's rem-based spacing
+   and text sizes render at readable sizes — no more pinch-and-zoom. */
 
 /* Small Phones */
 @media (max-width: 359px) {
   html {
-    font-size: 13px;
+    font-size: 16px;
   }
   .glass-card-strong {
     border-radius: 12px;
   }
   input, select, textarea {
-    font-size: 13px !important;
+    font-size: 16px !important;
   }
 }
 
 /* Standard Phones */
 @media (360px <= width <= 479px) {
   html {
-    font-size: 14px;
+    font-size: 16px;
   }
   .glass-card-strong {
     border-radius: 16px;
   }
   input, select, textarea {
-    font-size: 14px !important;
+    font-size: 16px !important;
   }
 }
 
 /* Large Phones */
 @media (480px <= width <= 767px) {
   html {
-    font-size: 15px;
+    font-size: 16px;
   }
   .glass-card-strong {
     border-radius: 20px;

@@ -527,65 +527,113 @@ export default function EvaluationForm() {
             const allBlocks: React.ReactNode[] = [];
 
             const renderTable = (crits: typeof currentCriteria, blockKey: string) => (
-              <div key={blockKey} className="overflow-x-auto rounded-2xl border border-white/30 dark:border-white/[0.08] mb-6 sm:mb-8">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="bg-slate-50/80 dark:bg-white/[0.03] border-b border-slate-200/60 dark:border-white/[0.06]">
-                      <th className="px-4 sm:px-6 py-3 sm:py-4 w-10 text-center text-xs font-bold text-slate-500 uppercase">#</th>
-                      <th className="px-4 sm:px-6 py-3 sm:py-4 min-w-[200px] text-xs font-bold text-slate-500 uppercase">Criteria / លក្ខណៈ</th>
-                      {cols.self && <th className="px-3 sm:px-6 py-3 sm:py-4 text-center w-28 sm:w-36 text-xs font-bold text-slate-500 uppercase">Self<br/><span className="font-normal normal-case">ខ្លួនឯង</span></th>}
-                      {cols.super && <th className="px-3 sm:px-6 py-3 sm:py-4 text-center w-28 sm:w-36 text-xs font-bold text-indigo-500 uppercase">Supervisor<br/><span className="font-normal normal-case">អ្នកគ្រប់គ្រង</span></th>}
-                      {cols.supporter && <th className="px-3 sm:px-6 py-3 sm:py-4 text-center w-28 sm:w-36 text-xs font-bold text-teal-500 uppercase">Supporter<br/><span className="font-normal normal-case">អ្នកគាំទ្រ</span></th>}
-                      {cols.management && <th className="px-3 sm:px-6 py-3 sm:py-4 text-center w-28 sm:w-36 text-xs font-bold text-amber-500 uppercase">Management<br/><span className="font-normal normal-case">ថ្នាក់គ្រប់គ្រង</span></th>}
-                      {cols.asp && <th className="px-3 sm:px-6 py-3 sm:py-4 text-center w-28 sm:w-36 text-xs font-bold text-rose-500 uppercase">ASP<br/><span className="font-normal normal-case">គណៈអភិបាល</span></th>}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100/60 dark:divide-white/[0.04]">
-                    {crits.map(crit => {
-                      const i = currentCriteria.indexOf(crit);
-                      return (
-                        <tr key={crit.id} className="hover:bg-slate-50/30 dark:hover:bg-white/[0.02] transition-colors">
-                          <td className="px-4 sm:px-6 py-3 sm:py-4 font-bold text-slate-400 text-center text-xs">{i + 1}</td>
-                          <td className="px-4 sm:px-6 py-3 sm:py-4">
-                            <div className="font-bold text-slate-900 dark:text-slate-100 text-sm sm:text-base">{crit.kh}</div>
-                            <div className="text-slate-500 dark:text-slate-400 font-medium text-xs mt-0.5">{crit.en}</div>
-                          </td>
-                          {cols.self && (
-                            <td className="px-3 sm:px-6 py-3">
-                              <ScoreInput value={criteriaScores[i]?.selfScore ?? 0} max={crit.max || 10} disabled={!canEditSelf}
-                                color="slate" onChange={v => handleCriteriaChange(i, 'selfScore', v, crit.max)} />
+              <React.Fragment key={blockKey}>
+                {/* Desktop/tablet: scrollable table */}
+                <div className="hidden sm:block overflow-x-auto rounded-2xl border border-white/30 dark:border-white/[0.08] mb-6 sm:mb-8">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="bg-slate-50/80 dark:bg-white/[0.03] border-b border-slate-200/60 dark:border-white/[0.06]">
+                        <th className="px-4 sm:px-6 py-3 sm:py-4 w-10 text-center text-xs font-bold text-slate-500 uppercase">#</th>
+                        <th className="px-4 sm:px-6 py-3 sm:py-4 min-w-[200px] text-xs font-bold text-slate-500 uppercase">Criteria / លក្ខណៈ</th>
+                        {cols.self && <th className="px-3 sm:px-6 py-3 sm:py-4 text-center w-28 sm:w-36 text-xs font-bold text-slate-500 uppercase">Self<br/><span className="font-normal normal-case">ខ្លួនឯង</span></th>}
+                        {cols.super && <th className="px-3 sm:px-6 py-3 sm:py-4 text-center w-28 sm:w-36 text-xs font-bold text-indigo-500 uppercase">Supervisor<br/><span className="font-normal normal-case">អ្នកគ្រប់គ្រង</span></th>}
+                        {cols.supporter && <th className="px-3 sm:px-6 py-3 sm:py-4 text-center w-28 sm:w-36 text-xs font-bold text-teal-500 uppercase">Supporter<br/><span className="font-normal normal-case">អ្នកគាំទ្រ</span></th>}
+                        {cols.management && <th className="px-3 sm:px-6 py-3 sm:py-4 text-center w-28 sm:w-36 text-xs font-bold text-amber-500 uppercase">Management<br/><span className="font-normal normal-case">ថ្នាក់គ្រប់គ្រង</span></th>}
+                        {cols.asp && <th className="px-3 sm:px-6 py-3 sm:py-4 text-center w-28 sm:w-36 text-xs font-bold text-rose-500 uppercase">ASP<br/><span className="font-normal normal-case">គណៈអភិបាល</span></th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100/60 dark:divide-white/[0.04]">
+                      {crits.map(crit => {
+                        const i = currentCriteria.indexOf(crit);
+                        return (
+                          <tr key={crit.id} className="hover:bg-slate-50/30 dark:hover:bg-white/[0.02] transition-colors">
+                            <td className="px-4 sm:px-6 py-3 sm:py-4 font-bold text-slate-400 text-center text-xs">{i + 1}</td>
+                            <td className="px-4 sm:px-6 py-3 sm:py-4">
+                              <div className="font-bold text-slate-900 dark:text-slate-100 text-sm sm:text-base">{crit.kh}</div>
+                              <div className="text-slate-500 dark:text-slate-400 font-medium text-xs mt-0.5">{crit.en}</div>
                             </td>
+                            {cols.self && (
+                              <td className="px-3 sm:px-6 py-3">
+                                <ScoreInput value={criteriaScores[i]?.selfScore ?? 0} max={crit.max || 10} disabled={!canEditSelf}
+                                  color="slate" onChange={v => handleCriteriaChange(i, 'selfScore', v, crit.max)} />
+                              </td>
+                            )}
+                            {cols.super && (
+                              <td className="px-3 sm:px-6 py-3">
+                                <ScoreInput value={criteriaScores[i]?.superScore ?? 0} max={crit.max || 10} disabled={!canEditSuper}
+                                  color="indigo" onChange={v => handleCriteriaChange(i, 'superScore', v, crit.max)} />
+                              </td>
+                            )}
+                            {cols.supporter && (
+                              <td className="px-3 sm:px-6 py-3">
+                                <ScoreInput value={criteriaScores[i]?.supporterScore ?? 0} max={crit.max || 10} disabled={!canEditSupporter}
+                                  color="teal" onChange={v => handleCriteriaChange(i, 'supporterScore', v, crit.max)} />
+                              </td>
+                            )}
+                            {cols.management && (
+                              <td className="px-3 sm:px-6 py-3">
+                                <ScoreInput value={criteriaScores[i]?.managementScore ?? 0} max={crit.max || 10} disabled={!canEditMgmt}
+                                  color="amber" onChange={v => handleCriteriaChange(i, 'managementScore', v, crit.max)} />
+                              </td>
+                            )}
+                            {cols.asp && (
+                              <td className="px-3 sm:px-6 py-3">
+                                <ScoreInput value={criteriaScores[i]?.aspScore ?? 0} max={crit.max || 10} disabled={!canEditAsp}
+                                  color="rose" onChange={v => handleCriteriaChange(i, 'aspScore', v, crit.max)} />
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile: stacked cards with large full-width score inputs */}
+                <div className="sm:hidden space-y-3 mb-6">
+                  {crits.map(crit => {
+                    const i = currentCriteria.indexOf(crit);
+                    return (
+                      <div key={crit.id} className="rounded-2xl border border-slate-200/60 dark:border-white/[0.1] bg-white/70 dark:bg-white/[0.04] p-4">
+                        <div className="flex items-start gap-2">
+                          <span className="shrink-0 flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-500 mt-0.5">{i + 1}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-bold text-slate-900 dark:text-slate-100 text-sm leading-snug">{crit.kh}</div>
+                            <div className="text-slate-500 dark:text-slate-400 font-medium text-xs mt-0.5">{crit.en}</div>
+                          </div>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-3">
+                          {cols.self && (
+                            <MobileScoreField label="Self" sublabel="ខ្លួនឯង" color="slate"
+                              value={criteriaScores[i]?.selfScore ?? 0} max={crit.max || 10} disabled={!canEditSelf}
+                              onChange={v => handleCriteriaChange(i, 'selfScore', v, crit.max)} />
                           )}
                           {cols.super && (
-                            <td className="px-3 sm:px-6 py-3">
-                              <ScoreInput value={criteriaScores[i]?.superScore ?? 0} max={crit.max || 10} disabled={!canEditSuper}
-                                color="indigo" onChange={v => handleCriteriaChange(i, 'superScore', v, crit.max)} />
-                            </td>
+                            <MobileScoreField label="Supervisor" sublabel="អ្នកគ្រប់គ្រង" color="indigo"
+                              value={criteriaScores[i]?.superScore ?? 0} max={crit.max || 10} disabled={!canEditSuper}
+                              onChange={v => handleCriteriaChange(i, 'superScore', v, crit.max)} />
                           )}
                           {cols.supporter && (
-                            <td className="px-3 sm:px-6 py-3">
-                              <ScoreInput value={criteriaScores[i]?.supporterScore ?? 0} max={crit.max || 10} disabled={!canEditSupporter}
-                                color="teal" onChange={v => handleCriteriaChange(i, 'supporterScore', v, crit.max)} />
-                            </td>
+                            <MobileScoreField label="Supporter" sublabel="អ្នកគាំទ្រ" color="teal"
+                              value={criteriaScores[i]?.supporterScore ?? 0} max={crit.max || 10} disabled={!canEditSupporter}
+                              onChange={v => handleCriteriaChange(i, 'supporterScore', v, crit.max)} />
                           )}
                           {cols.management && (
-                            <td className="px-3 sm:px-6 py-3">
-                              <ScoreInput value={criteriaScores[i]?.managementScore ?? 0} max={crit.max || 10} disabled={!canEditMgmt}
-                                color="amber" onChange={v => handleCriteriaChange(i, 'managementScore', v, crit.max)} />
-                            </td>
+                            <MobileScoreField label="Management" sublabel="ថ្នាក់គ្រប់គ្រង" color="amber"
+                              value={criteriaScores[i]?.managementScore ?? 0} max={crit.max || 10} disabled={!canEditMgmt}
+                              onChange={v => handleCriteriaChange(i, 'managementScore', v, crit.max)} />
                           )}
                           {cols.asp && (
-                            <td className="px-3 sm:px-6 py-3">
-                              <ScoreInput value={criteriaScores[i]?.aspScore ?? 0} max={crit.max || 10} disabled={!canEditAsp}
-                                color="rose" onChange={v => handleCriteriaChange(i, 'aspScore', v, crit.max)} />
-                            </td>
+                            <MobileScoreField label="ASP" sublabel="គណៈអភិបាល" color="rose"
+                              value={criteriaScores[i]?.aspScore ?? 0} max={crit.max || 10} disabled={!canEditAsp}
+                              onChange={v => handleCriteriaChange(i, 'aspScore', v, crit.max)} />
                           )}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </React.Fragment>
             );
 
             sections.forEach(section => {
@@ -845,10 +893,11 @@ function getRating(score: number) {
   return { label: 'Needs Improvement', khLabel: 'ត្រូវកែលម្អ' };
 }
 
-function ScoreInput({ value, max, disabled, color, onChange }: {
+function ScoreInput({ value, max, disabled, color, onChange, large = false }: {
   value: number; max: number; disabled: boolean;
   color: 'slate' | 'indigo' | 'teal' | 'amber' | 'rose';
   onChange: (v: string) => void;
+  large?: boolean;
 }) {
   const colorMap = {
     slate: { border: 'border-slate-200 dark:border-slate-700', bg: 'bg-white dark:bg-slate-800', text: 'text-slate-900 dark:text-slate-100', focus: 'focus:ring-slate-500' },
@@ -869,10 +918,30 @@ function ScoreInput({ value, max, disabled, color, onChange }: {
 
   return (
     <input type="number" step="0.5" min="0" max={max}
-      className={cn("w-full px-3 py-2 text-center rounded-xl border font-bold text-lg outline-none transition-all focus:ring-2", c.border, c.bg, c.text, c.focus, "print:border-none print:p-0")}
+      className={cn(
+        "w-full px-3 py-2 text-center rounded-xl border font-bold outline-none transition-all focus:ring-2",
+        large ? "py-3 text-xl" : "text-lg",
+        c.border, c.bg, c.text, c.focus, "print:border-none print:p-0"
+      )}
       value={value}
       onChange={e => onChange(e.target.value)}
     />
+  );
+}
+
+function MobileScoreField({ label, sublabel, value, max, disabled, color, onChange }: {
+  label: string; sublabel: string;
+  value: number; max: number; disabled: boolean;
+  color: 'slate' | 'indigo' | 'teal' | 'amber' | 'rose';
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="min-w-0">
+      <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">
+        {label} <span className="font-medium normal-case">({sublabel})</span>
+      </label>
+      <ScoreInput value={value} max={max} disabled={disabled} color={color} onChange={onChange} large />
+    </div>
   );
 }
 

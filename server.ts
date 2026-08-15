@@ -597,7 +597,7 @@ app.put('/api/evaluations/:id', authenticateToken, async (req, res) => {
     const evalId = isNaN(Number(id)) ? id : Number(id);
     const data = req.body;
 
-    const evResult = await pool.query('SELECT "createdBy","appraiser","supporter","employeeId" FROM "evaluations" WHERE "id" = $1', [evalId]);
+    const evResult = await pool.query('SELECT "createdBy","appraiser","supporter","employeeId","totalSelf","totalSuper" FROM "evaluations" WHERE "id" = $1', [evalId]);
     if (evResult.rows.length === 0) return res.status(404).json({ error: 'Evaluation not found' });
 
     const ev = evResult.rows[0];
@@ -609,6 +609,36 @@ app.put('/api/evaluations/:id', authenticateToken, async (req, res) => {
       await logAudit(req.user!.id, req.user!.name, 'unauthorized_access', `Attempted to edit evaluation #${id}`);
       return res.status(403).json({ error: 'Not authorized to edit this evaluation' });
     }
+
+    // ─── Column-level protection ───
+    // Each score column may only be written by the evaluator assigned to it:
+    //   supervisor column  → only the assigned appraiser (or superadmin override)
+    //   supporter column   → only the assigned supporter (or superadmin override)
+    //   self column        → only the employee, admins, or superadmin
+    //   management / asp   → only admins / superadmin
+    // Unauthorized columns keep their existing spreadsheet value, so an
+    // employee or admin can never change the supervisor's score via the API.
+    const userId = String(req.user!.id || '').trim().toLowerCase();
+    const isSuperAdmin = req.user!.role === 'superadmin';
+    const isAdminRole = req.user!.role === 'superadmin' || req.user!.role === 'admin';
+    const isAssignedSupervisor = String(ev.appraiser || '').trim().toLowerCase() === userId;
+    const isAssignedSupporter = String(ev.supporter || '').trim().toLowerCase() === userId;
+    const isAssignedEmployee = String(ev.employeeId || '').trim().toLowerCase() === userId;
+
+    const canWriteSelf = isSuperAdmin || isAdminRole || isAssignedEmployee;
+    const canWriteSuper = isSuperAdmin || isAssignedSupervisor;
+    const canWriteSupporter = isSuperAdmin || isAssignedSupporter;
+    const canWriteMgmt = isAdminRole;
+    const canWriteAsp = isAdminRole;
+
+    const existingScores = await pool.query(
+      'SELECT "criteriaId","selfScore","superScore","supporterScore","managementScore","aspScore" FROM "criteria_scores" WHERE "evaluationId" = $1',
+      [evalId]
+    );
+    const existingScoreMap = new Map<string, any>(existingScores.rows.map((r: any) => [String(r.criteriaId), r]));
+
+    const totalSelf = canWriteSelf ? (data.totalSelf || 0) : (ev.totalSelf || 0);
+    const totalSuper = canWriteSuper ? (data.totalSuper || 0) : (ev.totalSuper || 0);
 
     await transaction(async (client) => {
       await client.query(
@@ -622,16 +652,24 @@ app.put('/api/evaluations/:id', authenticateToken, async (req, res) => {
           String(data.employeeId || ''), data.employeeName || '', data.campus || '', data.department || '', data.position || '',
           String(data.appraiser || ''), String(data.supporter || ''), data.reviewDate || '', data.weightScheme || '',
           data.evaluationType || 'management', data.evalPeriod || '',
-          data.totalSelf || 0, data.totalSuper || 0, data.overallScore || 0,
+          totalSelf, totalSuper, data.overallScore || 0,
           data.evaluatorComments || '', data.status || 'Draft', evalId
         ]
       );
 
       await client.query('DELETE FROM "criteria_scores" WHERE "evaluationId" = $1', [evalId]);
       for (const score of (data.criteriaScores || [])) {
+        const prev: any = existingScoreMap.get(String(score.criteriaId)) || { selfScore: 0, superScore: 0, supporterScore: 0, managementScore: 0, aspScore: 0 };
         await client.query(
           'INSERT INTO "criteria_scores" ("evaluationId","criteriaId","selfScore","superScore","supporterScore","managementScore","aspScore") VALUES ($1,$2,$3,$4,$5,$6,$7)',
-          [evalId, score.criteriaId, score.selfScore || 0, score.superScore || 0, score.supporterScore || 0, score.managementScore || 0, score.aspScore || 0]
+          [
+            evalId, score.criteriaId,
+            canWriteSelf ? (score.selfScore || 0) : (prev.selfScore || 0),
+            canWriteSuper ? (score.superScore || 0) : (prev.superScore || 0),
+            canWriteSupporter ? (score.supporterScore || 0) : (prev.supporterScore || 0),
+            canWriteMgmt ? (score.managementScore || 0) : (prev.managementScore || 0),
+            canWriteAsp ? (score.aspScore || 0) : (prev.aspScore || 0)
+          ]
         );
       }
 
